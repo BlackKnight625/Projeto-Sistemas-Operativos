@@ -11,6 +11,7 @@
 int numberThreads = 0;
 tecnicofs* fs;
 
+/*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
 int numberCommands = 0;
 int headQueue = 0;
