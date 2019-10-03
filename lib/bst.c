@@ -8,6 +8,7 @@ void insertDelay(int cycles){
     for(int i=0; i < cycles; i++){}
 }
 
+/*Devolve um ponteiro para um novo -node- com a chave -key- e identificador -inumber-*/
 node* new_node(char* key, int inumber)
 {
     node* p = malloc(sizeof(node));
@@ -25,6 +26,7 @@ node* new_node(char* key, int inumber)
     return p;
 }
 
+/*Devolve */
 int max(int a, int b)
 {
     return a > b ? a : b;
