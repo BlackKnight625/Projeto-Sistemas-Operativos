@@ -126,6 +126,7 @@ void applyCommands(){
     }
 }
 
+/**/
 int main(int argc, char* argv[]) {
     parseArgs(argc, argv);
 
