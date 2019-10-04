@@ -128,7 +128,7 @@ void applyCommands(){
 
 
 
-/**/
+/* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
     parseArgs(argc, argv);
 
