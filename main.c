@@ -41,7 +41,7 @@ int insertCommand(char* data) {
 
 /*Devolve o proximo comando em -inputCommands-. Caso nao existe, devolve NULL*/
 char* removeCommand() {
-    if((numberCommands + 1)){
+    if(numberCommands > 0){
         numberCommands--;
         return inputCommands[headQueue++];  
     }
