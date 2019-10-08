@@ -3,18 +3,25 @@
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
+#include <pthread.h>
 #include "fs.h"
+#include "thread_inputs.h"
 
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
 
-int numberThreads = 0;
-tecnicofs* fs;
+/*Definicao de structs*/
 
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
 int numberCommands = 0;
 int headQueue = 0;
+
+/*Variáveis globais*/
+pthread_rwlock_t *lock;
+pthread_t *thread_ids[MAX_COMMANDS];
+int numberThreads = 0;
+tecnicofs* fs;
 
 
 static void displayUsage (const char* appName){
@@ -106,7 +113,13 @@ void applyCommands(){
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
-                create(fs, name, iNumber);
+
+                tecnicofs_char_int *input;
+                input->fs = fs;
+                input->name = name;
+                input->iNumber = iNumber;
+
+                pthread_create(thread_ids[numberThreads++], NULL, create, input);
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
