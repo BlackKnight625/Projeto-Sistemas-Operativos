@@ -142,6 +142,7 @@ int main(int argc, char* argv[]) {
 
     fs = new_tecnicofs();
     processInput(argv);
+    //criar pool de tarefas
     applyCommands(argv);
     print_tecnicofs_tree(fp, fs);
 
