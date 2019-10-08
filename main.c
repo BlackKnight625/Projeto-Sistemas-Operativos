@@ -31,7 +31,7 @@ static void displayUsage (const char* appName){
 
 /*Verifica e lida com os argumentos passados na consola para o programa. */
 static void parseArgs (long argc, char* const argv[]){
-    if (argc != 1) {
+    if (argc != 4) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
@@ -62,9 +62,11 @@ void errorParse(){
 }
 
 /*Converte o input do ficheiro fornecido para o vetor -inputCommands-*/
-void processInput(){
+void processInput(char* const argv[]){
+    FILE *fp;
+    fp = fopen(argv[1], "r");
     char line[MAX_INPUT_SIZE];
-    while (fgets(line, sizeof(line)/sizeof(char), stdin)) {
+    while (fgets(line, sizeof(line)/sizeof(char), fp)) {
         char token;
         char name[MAX_INPUT_SIZE];
 
@@ -90,10 +92,13 @@ void processInput(){
             }
         }
     }
+    fclose(fp);
 }
 
 /*Corre os comandos presentes em -inputCommands-*/
-void applyCommands(){
+void applyCommands(char* const argv[]){
+    FILE *fp;
+    fp = fopen(argv[2], "w");
     while(numberCommands > 0){
         const char* command = removeCommand();
         if (command == NULL){
@@ -114,19 +119,16 @@ void applyCommands(){
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
-                tecnicofs_char_int *input;
-                input->fs = fs;
-                input->name = name;
-                input->iNumber = iNumber;
+                tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
 
                 pthread_create(thread_ids[numberThreads++], NULL, create, input);
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
                 if(!searchResult)
-                    printf("%s not found\n", name);
+                    fprintf(fp, "%s not found\n", name);
                 else
-                    printf("%s found with inumber %d\n", name, searchResult);
+                    fprintf(fp, "%s found with inumber %d\n", name, searchResult);
                 break;
             case 'd':
                 delete(fs, name);
@@ -137,19 +139,23 @@ void applyCommands(){
             }
         }
     }
+    fclose(fp);
 }
 
 
 
 /* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
+    FILE *fp;
+    fp = fopen(argv[2], "a");
     parseArgs(argc, argv);
 
     fs = new_tecnicofs();
-    processInput();
-    applyCommands();
-    print_tecnicofs_tree(stdout, fs);
+    processInput(argv);
+    applyCommands(argv);
+    print_tecnicofs_tree(fp, fs);
 
+    fclose(fp);
     free_tecnicofs(fs);
     exit(EXIT_SUCCESS);
 }
