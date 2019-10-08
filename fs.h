@@ -10,7 +10,7 @@ typedef struct tecnicofs {
 int obtainNewInumber(tecnicofs* fs);
 tecnicofs* new_tecnicofs();
 void free_tecnicofs(tecnicofs* fs);
-void create(tecnicofs* fs, char *name, int inumber);
+void create(void *input);
 void delete(tecnicofs* fs, char *name);
 int lookup(tecnicofs* fs, char *name);
 void print_tecnicofs_tree(FILE * fp, tecnicofs *fs);
