@@ -32,6 +32,7 @@ void free_tecnicofs(tecnicofs* fs){
 void create(void *input){
 	tecnicofs_char_int *inputs = (tecnicofs_char_int*) input;
 	inputs->fs->bstRoot = insert(inputs->fs->bstRoot, inputs->name, inputs->iNumber);
+	destroyThreadInputTecnicofsCharInt(inputs);
 }
 
 void delete(tecnicofs* fs, char *name){
