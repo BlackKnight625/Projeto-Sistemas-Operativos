@@ -4,10 +4,12 @@
 //#include "lib/bst.h" ja esta incluido em fs.h
 #include "fs.h"
 
+#define MAX_INPUT_SIZE 100
+
 /*Structs que guarda inputs para funcoes*/
 typedef struct Tecnicofs_char_int {
     tecnicofs *fs;
-    char *name;
+    char name[MAX_INPUT_SIZE];
     int iNumber;
 } tecnicofs_char_int;
 
@@ -15,5 +17,8 @@ typedef struct Tecnicofs_char_int {
 tecnicofs_char_int *createThreadInputTecnicofsCharInt(tecnicofs *fs, char *name, int iNumber);
 void destroyThreadInputTecnicofsCharInt(tecnicofs_char_int *input);
 void *create(void *input);
+
+void initLock();
+void destroyLock();
 
 #endif /* THREAD_INPUTS_H */
