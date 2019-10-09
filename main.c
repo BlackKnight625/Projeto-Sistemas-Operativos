@@ -107,7 +107,7 @@ void applyCommands(char* const argv[]){
         if (command == NULL){
             continue;
         }
-
+/*Oi*/
         char token;
         char name[MAX_INPUT_SIZE];
         int numTokens = sscanf(command, "%c %s", &token, name);
