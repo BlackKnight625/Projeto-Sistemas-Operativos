@@ -4,8 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <pthread.h>
-//#include "fs.h"
-#include "thread_inputs.h"
+#include "fs.h"
 
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
@@ -21,6 +20,8 @@ int headQueue = 0;
 pthread_rwlock_t *lock;
 int numberThreads = 0;
 tecnicofs* fs;
+clock_t begin;
+clock_t ending;
 
 
 static void displayUsage (const char* appName){
@@ -98,19 +99,18 @@ void processInput(char* const argv[]){
 void applyCommands(char* const argv[]){
     FILE *fp;
     fp = fopen(argv[2], "w");
-    int numMaxThreads = atoi(argv[3]);
-    pthread_t thread_ids[numMaxThreads];
+    //int numMaxThreads = atoi(argv[3]);
     int searchResult;
     int iNumber;
 
-    initLock();
+    begin = clock();
 
     while(numberCommands > 0){
         const char* command = removeCommand();
         if (command == NULL){
             continue;
         }
-/*Oi*/
+
         char token;
         char name[MAX_INPUT_SIZE];
         int numTokens = sscanf(command, "%c %s", &token, name);
@@ -118,22 +118,12 @@ void applyCommands(char* const argv[]){
             fprintf(stderr, "Error: invalid command in Queue\n");
             exit(EXIT_FAILURE);
         }
-
-        if(numberThreads >= numMaxThreads) {
-            for(int i = 0; i < numberThreads; i++) {
-                pthread_join(thread_ids[i], NULL);
-            }
-            numberThreads = 0;
-        }
        
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
-                tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
-
-                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
-
+                create(fs, name, iNumber);
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
@@ -151,7 +141,7 @@ void applyCommands(char* const argv[]){
             }
         }
     }
-    destroyLock();
+    ending = clock();
     fclose(fp);
 }
 
@@ -159,6 +149,7 @@ void applyCommands(char* const argv[]){
 
 /* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
+    
     FILE *fp;
     fp = fopen(argv[2], "a");
     parseArgs(argc, argv);
@@ -169,7 +160,10 @@ int main(int argc, char* argv[]) {
     applyCommands(argv);
     print_tecnicofs_tree(fp, fs);
 
+    fprintf(fp, "Exec time: %f s\n", (double) (ending - begin)/CLOCKS_PER_SEC);
+
     fclose(fp);
     free_tecnicofs(fs);
+
     exit(EXIT_SUCCESS);
 }
