@@ -130,7 +130,7 @@ void *applyCommands(){
         }
 
         printf("Thread running %c command on directory %s\n", token, name);
-        /*Oi*/
+        /*Oi Miguelão*/
        
         switch (token) {
             case 'c':
