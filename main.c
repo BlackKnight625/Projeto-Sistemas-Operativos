@@ -97,13 +97,8 @@ void processInput(char* const argv[]){
 
 /*Corre os comandos presentes em -inputCommands-*/
 void applyCommands(char* const argv[]){
-    FILE *fp;
-    fp = fopen(argv[2], "w");
-    //int numMaxThreads = atoi(argv[3]);
     int searchResult;
     int iNumber;
-
-    begin = clock();
 
     while(numberCommands > 0){
         const char* command = removeCommand();
@@ -128,9 +123,9 @@ void applyCommands(char* const argv[]){
             case 'l':
                 searchResult = lookup(fs, name);
                 if(!searchResult)
-                    fprintf(fp, "%s not found\n", name);
+                    printf("%s not found\n", name);
                 else
-                    fprintf(fp, "%s found with inumber %d\n", name, searchResult);
+                    printf("%s found with inumber %d\n", name, searchResult);
                 break;
             case 'd':
                 delete(fs, name);
@@ -141,8 +136,6 @@ void applyCommands(char* const argv[]){
             }
         }
     }
-    ending = clock();
-    fclose(fp);
 }
 
 
@@ -151,16 +144,26 @@ void applyCommands(char* const argv[]){
 int main(int argc, char* argv[]) {
     
     FILE *fp;
-    fp = fopen(argv[2], "a");
+    int numMaxThreads = atoi(argv[3]);
+    
+    fp = fopen(argv[2], "w");
+
     parseArgs(argc, argv);
 
     fs = new_tecnicofs();
     processInput(argv);
-    //criar pool de tarefas
+
+    
+    begin = clock();
+
     applyCommands(argv);
+
+    ending = clock();
+
+
     print_tecnicofs_tree(fp, fs);
 
-    fprintf(fp, "Exec time: %f s\n", (double) (ending - begin)/CLOCKS_PER_SEC);
+    printf("Exec time: %f s\n", (double) (ending - begin)/CLOCKS_PER_SEC);
 
     fclose(fp);
     free_tecnicofs(fs);
