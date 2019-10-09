@@ -99,7 +99,7 @@ void applyCommands(char* const argv[]){
     FILE *fp;
     fp = fopen(argv[2], "w");
     int numMaxThreads = atoi(argv[3]);
-
+/*Die*/
     pthread_t thread_ids[numMaxThreads];
 
     while(numberCommands > 0){
