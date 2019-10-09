@@ -130,11 +130,7 @@ void applyCommands(char* const argv[]){
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
-                printf("Criando thread com nome %s. NumberThreads = %d\n", name, numberThreads);
-
                 tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
-                
-                printf("Estado de criacao da thread: %d\n", pthread_create(&(thread_ids[numberThreads++]), NULL, create, input));
 
                 break;
             case 'l':
