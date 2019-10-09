@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include "fs.h"
 
 #define MAX_COMMANDS 150000
@@ -21,8 +22,6 @@ pthread_rwlock_t rwLock;
 pthread_mutex_t mutex;
 int numberThreads = 0;
 tecnicofs* fs;
-clock_t begin;
-clock_t ending;
 
 
 static void displayUsage (const char* appName){
@@ -196,6 +195,11 @@ void createThreads(int numMaxThreads) {
 
 /* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
+    struct timeval tv;
+    time_t i_secs;
+    suseconds_t i_msecs;
+    time_t f_secs;
+    suseconds_t f_msecs;
     
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
@@ -215,16 +219,18 @@ int main(int argc, char* argv[]) {
     processInput(argv);
 
     
-    begin = clock();
+    gettimeofday(&tv, NULL);
+    i_secs = tv.tv_sec;
+    i_msecs = tv.tv_usec;
 
     createThreads(numMaxThreads);
 
-    ending = clock();
-
+    gettimeofday(&tv, NULL);
+    f_secs = tv.tv_sec;
+    f_msecs = tv.tv_usec;
+    printf("%ld.00%ld\n", f_secs - i_secs, f_msecs - i_msecs);
 
     print_tecnicofs_tree(fp, fs);
-
-    printf("Exec time: %f s\n", (double) (ending - begin)/CLOCKS_PER_SEC);
 
     fclose(fp);
     free_tecnicofs(fs);
