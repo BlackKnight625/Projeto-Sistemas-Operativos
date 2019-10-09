@@ -28,12 +28,9 @@ void free_tecnicofs(tecnicofs* fs){
 	free(fs);
 }
 
-
-/*void *create(void *input){
-	tecnicofs_char_int *inputs = (tecnicofs_char_int*) input;
-	inputs->fs->bstRoot = insert(inputs->fs->bstRoot, inputs->name, inputs->iNumber);
-	destroyThreadInputTecnicofsCharInt(inputs);
-}*/
+void create(tecnicofs *fs, char *name, int iNumber){
+    fs->bstRoot = insert(fs->bstRoot, name, iNumber);
+}
 
 void delete(tecnicofs* fs, char *name){
 	fs->bstRoot = remove_item(fs->bstRoot, name);

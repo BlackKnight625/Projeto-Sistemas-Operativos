@@ -4,8 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <pthread.h>
-//#include "fs.h"
-#include "thread_inputs.h"
+#include <sys/time.h>
+#include "fs.h"
 
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
@@ -18,6 +18,7 @@ int numberCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
+pthread_rwlock_t lock;
 int numberThreads = 0;
 tecnicofs* fs;
 
@@ -94,49 +95,37 @@ void processInput(char* const argv[]){
 }
 
 /*Corre os comandos presentes em -inputCommands-*/
-void applyCommands(char* const argv[]){
-    FILE *fp;
-    fp = fopen(argv[2], "w");
-    int numMaxThreads = atoi(argv[3]);
-    pthread_t thread_ids[numMaxThreads];
+void *applyCommands(){
+    int searchResult;
+    int iNumber;
+    char token;
+    char name[MAX_INPUT_SIZE];
 
     while(numberCommands > 0){
         const char* command = removeCommand();
         if (command == NULL){
             continue;
         }
-/*Oi*/
-        char token;
-        char name[MAX_INPUT_SIZE];
+
         int numTokens = sscanf(command, "%c %s", &token, name);
+
         if (numTokens != 2) {
             fprintf(stderr, "Error: invalid command in Queue\n");
             exit(EXIT_FAILURE);
         }
 
-        if(numberThreads >= numMaxThreads) {
-            for(int i = 0; i < numberThreads; i++) {
-                pthread_join(thread_ids[i], NULL);
-            }
-            numberThreads = 0;
-        }
-
-        int iNumber;
-       
-        tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, 0);
 
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
-
-                input->iNumber = iNumber;
-                
-                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
-
+                create(fs, name, iNumber);
                 break;
             case 'l':
-                input->fp = fp;
-                pthread_create(&(thread_ids[numberThreads++]), NULL, look, input);
+                searchResult = lookup(fs, name);
+                if(!searchResult)
+                    printf("%s not found\n", name);
+                else
+                    printf("%s found with inumber %d\n", name, searchResult);
                 break;
             case 'd':
                 delete(fs, name);
@@ -147,24 +136,55 @@ void applyCommands(char* const argv[]){
             }
         }
     }
-    fclose(fp);
+    return NULL;
 }
 
-
+void createThreads(int numMaxThreads) {
+    pthread_t threadIds[numMaxThreads];
+    for(int i = 0; i < numMaxThreads; i++) {
+        if(pthread_create(&(threadIds[i]), NULL, applyCommands, NULL)) {
+            perror("Unable to create thread in createThreads(int numMaxThreads)");
+        }
+    }
+}
 
 /* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
+    struct timeval tv;
+    time_t i_secs;
+    suseconds_t i_msecs;
+    time_t f_secs;
+    suseconds_t f_msecs;
+    
     FILE *fp;
-    fp = fopen(argv[2], "a");
+    int numMaxThreads = atoi(argv[3]);
+
+    fp = fopen(argv[2], "w");
+    if(pthread_rwlock_init(&lock, NULL)) {
+        perror("Unable to initialize lock");
+    }
+
     parseArgs(argc, argv);
 
     fs = new_tecnicofs();
     processInput(argv);
-    //criar pool de tarefas
-    applyCommands(argv);
+
+    
+    gettimeofday(&tv, NULL);
+    i_secs = tv.tv_sec;
+    i_msecs = tv.tv_usec;
+
+    createThreads(numMaxThreads);
+
+    gettimeofday(&tv, NULL);
+    f_secs = tv.tv_sec;
+    f_msecs = tv.tv_usec;
+    printf("%ld.00%ld\n", f_secs - i_secs, f_msecs - i_msecs);
+
     print_tecnicofs_tree(fp, fs);
 
     fclose(fp);
     free_tecnicofs(fs);
+
     exit(EXIT_SUCCESS);
 }

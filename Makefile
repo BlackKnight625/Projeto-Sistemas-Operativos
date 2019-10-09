@@ -12,17 +12,14 @@ LDFLAGS=-lm
 
 all: tecnicofs
 
-tecnicofs: lib/bst.o fs.o thread_inputs.o main.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs lib/bst.o fs.o thread_inputs.o main.o
+tecnicofs: lib/bst.o fs.o main.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs lib/bst.o fs.o main.o
 
 lib/bst.o: lib/bst.c lib/bst.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
 
 fs.o: fs.c fs.h lib/bst.h
 	$(CC) $(CFLAGS) -o fs.o -c fs.c
-
-thread_inputs.o: lib/bst.h fs.h thread_inputs.c thread_inputs.h
-	$(CC) $(CFLAGS) -o thread_inputs.o -c thread_inputs.c
 
 main.o: main.c fs.h lib/bst.h
 	$(CC) $(CFLAGS) -o main.o -c main.c
