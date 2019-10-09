@@ -132,6 +132,8 @@ void applyCommands(char* const argv[]){
 
                 tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
 
+                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
+
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
