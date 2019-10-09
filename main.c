@@ -18,7 +18,6 @@ int numberCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
-pthread_rwlock_t *lock;
 int numberThreads = 0;
 tecnicofs* fs;
 
@@ -122,24 +121,22 @@ void applyCommands(char* const argv[]){
             numberThreads = 0;
         }
 
-        int searchResult;
         int iNumber;
        
+        tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, 0);
+
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
-                tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
+                input->iNumber = iNumber;
                 
                 pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
 
                 break;
             case 'l':
-                searchResult = lookup(fs, name);
-                if(!searchResult)
-                    fprintf(fp, "%s not found\n", name);
-                else
-                    fprintf(fp, "%s found with inumber %d\n", name, searchResult);
+                input->fp = fp;
+                pthread_create(&(thread_ids[numberThreads++]), NULL, look, input);
                 break;
             case 'd':
                 delete(fs, name);

@@ -9,11 +9,13 @@ typedef struct Tecnicofs_char_int {
     tecnicofs *fs;
     char *name;
     int iNumber;
+    FILE *fp;
 } tecnicofs_char_int;
 
 
 tecnicofs_char_int *createThreadInputTecnicofsCharInt(tecnicofs *fs, char *name, int iNumber);
 void destroyThreadInputTecnicofsCharInt(tecnicofs_char_int *input);
 void *create(void *input);
+void *look(void *input);
 
 #endif /* THREAD_INPUTS_H */
