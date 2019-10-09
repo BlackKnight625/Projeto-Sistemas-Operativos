@@ -9,7 +9,6 @@
 
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
-#define MAX_NUM_THREADS 32 
 
 /*Definicao de structs*/
 
@@ -20,7 +19,6 @@ int headQueue = 0;
 
 /*Variáveis globais*/
 pthread_rwlock_t *lock;
-pthread_t thread_ids[MAX_NUM_THREADS];
 int numberThreads = 0;
 tecnicofs* fs;
 
@@ -100,6 +98,10 @@ void processInput(char* const argv[]){
 void applyCommands(char* const argv[]){
     FILE *fp;
     fp = fopen(argv[2], "w");
+    int numMaxThreads = atoi(argv[3]);
+
+    pthread_t thread_ids[numMaxThreads];
+
     while(numberCommands > 0){
         const char* command = removeCommand();
         if (command == NULL){
@@ -114,22 +116,24 @@ void applyCommands(char* const argv[]){
             exit(EXIT_FAILURE);
         }
 
+        if(numberThreads >= numMaxThreads) {
+            for(int i = 0; i < numberThreads; i++) {
+                pthread_join(thread_ids[i], NULL);
+            }
+            numberThreads = 0;
+        }
+
         int searchResult;
         int iNumber;
-        int i;
-        int numThreads = atoi(argv[3]);
+       
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
                 tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
                 
-                for (i = 0; i < numThreads; i++) {
-                    pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
-                }
-                for (i = 0; i < numThreads; i++) {
-                    pthread_join(thread_ids[numberThreads++], NULL);
-                }
+                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
+
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
