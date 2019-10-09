@@ -96,18 +96,17 @@ void processInput(char* const argv[]){
 
 /*Corre os comandos presentes em -inputCommands-*/
 void applyCommands(char* const argv[]){
-    /*FILE *fp;
+    FILE *fp;
     fp = fopen(argv[2], "w");
     int numMaxThreads = atoi(argv[3]);
     pthread_t thread_ids[numMaxThreads];
-*/ /*
+
     while(numberCommands > 0){
         const char* command = removeCommand();
         if (command == NULL){
             continue;
         }
-        */
-/*Oi*/ /*
+/*Oi*/
         char token;
         char name[MAX_INPUT_SIZE];
         int numTokens = sscanf(command, "%c %s", &token, name);
@@ -144,7 +143,7 @@ void applyCommands(char* const argv[]){
                 break;
             case 'd':
                 delete(fs, name);
-                break;*/
+                break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
                 exit(EXIT_FAILURE);
