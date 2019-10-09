@@ -1,5 +1,5 @@
 #include "fs.h"
-#include "thread_inputs.h"
+//#include "thread_inputs.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,11 +29,11 @@ void free_tecnicofs(tecnicofs* fs){
 }
 
 
-void *create(void *input){
+/*void *create(void *input){
 	tecnicofs_char_int *inputs = (tecnicofs_char_int*) input;
 	inputs->fs->bstRoot = insert(inputs->fs->bstRoot, inputs->name, inputs->iNumber);
 	destroyThreadInputTecnicofsCharInt(inputs);
-}
+}*/
 
 void delete(tecnicofs* fs, char *name){
 	fs->bstRoot = remove_item(fs->bstRoot, name);

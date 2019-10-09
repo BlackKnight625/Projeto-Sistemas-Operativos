@@ -4,11 +4,12 @@
 #include <string.h>
 #include <ctype.h>
 #include <pthread.h>
-#include "fs.h"
+//#include "fs.h"
 #include "thread_inputs.h"
 
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
+#define MAX_NUM_THREADS 32 
 
 /*Definicao de structs*/
 
@@ -19,7 +20,7 @@ int headQueue = 0;
 
 /*Variáveis globais*/
 pthread_rwlock_t *lock;
-pthread_t *thread_ids[MAX_COMMANDS];
+pthread_t thread_ids[MAX_NUM_THREADS];
 int numberThreads = 0;
 tecnicofs* fs;
 
@@ -121,7 +122,7 @@ void applyCommands(char* const argv[]){
 
                 tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
 
-                pthread_create(thread_ids[numberThreads++], NULL, create, input);
+                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
