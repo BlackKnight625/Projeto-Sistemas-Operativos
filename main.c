@@ -138,15 +138,24 @@ void applyCommands(){
     }
 }
 
+void createThreads(int numMaxThreads) {
+    for(int i = 0; i < numMaxThreads; i++) {
 
+    }
+    applyCommands();
+}
 
 /* Main FUNKKKKKK */
 int main(int argc, char* argv[]) {
     
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
+    pthread_t threadIds[numMaxThreads];
 
     fp = fopen(argv[2], "w");
+    if(pthread_rwlock_init(&lock, NULL)) {
+        perror("Unable to initialize lock");
+    }
 
     parseArgs(argc, argv);
 
@@ -156,7 +165,7 @@ int main(int argc, char* argv[]) {
     
     begin = clock();
 
-    applyCommands(argv);
+    createThreads(numMaxThreads);
 
     ending = clock();
 
