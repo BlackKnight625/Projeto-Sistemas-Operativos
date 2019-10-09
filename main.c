@@ -116,13 +116,20 @@ void applyCommands(char* const argv[]){
 
         int searchResult;
         int iNumber;
+        int i;
+        int numThreads = atoi(argv[3]);
         switch (token) {
             case 'c':
                 iNumber = obtainNewInumber(fs);
 
                 tecnicofs_char_int *input = createThreadInputTecnicofsCharInt(fs, name, iNumber);
-
-                pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
+                
+                for (i = 0; i < numThreads; i++) {
+                    pthread_create(&(thread_ids[numberThreads++]), NULL, create, input);
+                }
+                for (i = 0; i < numThreads; i++) {
+                    pthread_join(thread_ids[numberThreads++], NULL);
+                }
                 break;
             case 'l':
                 searchResult = lookup(fs, name);
