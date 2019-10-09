@@ -96,7 +96,7 @@ void processInput(char* const argv[]){
 }
 
 /*Corre os comandos presentes em -inputCommands-*/
-void applyCommands(char* const argv[]){
+void applyCommands(){
     int searchResult;
     int iNumber;
 
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
     
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
-    
+
     fp = fopen(argv[2], "w");
 
     parseArgs(argc, argv);
