@@ -192,6 +192,7 @@ void createThreads(int numMaxThreads) {
         }
     }
     for (int i = 0; i < numMaxThreads; i++) {
+        printf("Vou terminar threads\n");
         if(pthread_join(threadIds[i],NULL)) {
             perror("Unable to terminate thread");
         }
