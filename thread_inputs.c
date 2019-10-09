@@ -35,8 +35,6 @@ void *create(void *input){
     }
 	tecnicofs_char_int *inputs = (tecnicofs_char_int*) input;
 
-    printf("Node sendo criada com nome %s\n", inputs->name);
-
 	inputs->fs->bstRoot = insert(inputs->fs->bstRoot, inputs->name, inputs->iNumber);
 	destroyThreadInputTecnicofsCharInt(inputs);
     
