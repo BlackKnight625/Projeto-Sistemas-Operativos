@@ -17,7 +17,7 @@ int numberCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
-pthread_rwlock_t *lock;
+pthread_rwlock_t lock;
 int numberThreads = 0;
 tecnicofs* fs;
 clock_t begin;
@@ -96,9 +96,11 @@ void processInput(char* const argv[]){
 }
 
 /*Corre os comandos presentes em -inputCommands-*/
-void applyCommands(){
+void *applyCommands(){
     int searchResult;
     int iNumber;
+    char token;
+    char name[MAX_INPUT_SIZE];
 
     while(numberCommands > 0){
         const char* command = removeCommand();
@@ -106,9 +108,8 @@ void applyCommands(){
             continue;
         }
 
-        char token;
-        char name[MAX_INPUT_SIZE];
         int numTokens = sscanf(command, "%c %s", &token, name);
+
         if (numTokens != 2) {
             fprintf(stderr, "Error: invalid command in Queue\n");
             exit(EXIT_FAILURE);
@@ -139,10 +140,12 @@ void applyCommands(){
 }
 
 void createThreads(int numMaxThreads) {
+    pthread_t threadIds[numMaxThreads];
     for(int i = 0; i < numMaxThreads; i++) {
-
+        if(pthread_create(&(threadIds[i]), NULL, applyCommands, NULL)) {
+            perror("Unable to create thread in createThreads(int numMaxThreads)");
+        }
     }
-    applyCommands();
 }
 
 /* Main FUNKKKKKK */
@@ -150,7 +153,6 @@ int main(int argc, char* argv[]) {
     
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
-    pthread_t threadIds[numMaxThreads];
 
     fp = fopen(argv[2], "w");
     if(pthread_rwlock_init(&lock, NULL)) {
