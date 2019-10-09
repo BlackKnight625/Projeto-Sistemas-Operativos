@@ -137,6 +137,7 @@ void *applyCommands(){
             }
         }
     }
+    return NULL;
 }
 
 void createThreads(int numMaxThreads) {
