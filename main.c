@@ -17,7 +17,8 @@ int numberCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
-pthread_rwlock_t lock;
+pthread_rwlock_t rwLock;
+pthread_mutex_t mutex;
 int numberThreads = 0;
 tecnicofs* fs;
 clock_t begin;
@@ -104,32 +105,76 @@ void *applyCommands(){
 
     while(numberCommands > 0){
         const char* command = removeCommand();
-        if (command == NULL){
+        if(command == NULL){
             continue;
+        }
+
+        /*Lock*/
+        if(pthread_mutex_lock(&mutex)) {
+            perror("Unable to mutex lock in applyCommands()");
         }
 
         int numTokens = sscanf(command, "%c %s", &token, name);
 
-        if (numTokens != 2) {
+        if(token == 'c') {
+            iNumber = obtainNewInumber(fs);
+        }
+
+        /*Unlock*/
+        if(pthread_mutex_unlock(&mutex)) {
+            perror("Unable to mutex unlock in applyCommands()");
+        }
+
+        if(numTokens != 2) {
             fprintf(stderr, "Error: invalid command in Queue\n");
             exit(EXIT_FAILURE);
         }
+
+        printf("Thread running %c command on directory %s\n", token, name);
        
         switch (token) {
             case 'c':
-                iNumber = obtainNewInumber(fs);
+                /*Lock*/
+                if(pthread_rwlock_wrlock(&rwLock)) {
+                    perror("Unable to rwlock in applyCommands()");
+                }
 
                 create(fs, name, iNumber);
+
+                /*Unlock*/
+                if(pthread_rwlock_unlock(&rwLock)) {
+                    perror("Unable to rwunlock in applyCommands()");
+                }
                 break;
             case 'l':
+                /*Lock*/
+                if(pthread_rwlock_rdlock(&rwLock)) {
+                    perror("Unable to rwlock in applyCommands()");
+                }
+
                 searchResult = lookup(fs, name);
                 if(!searchResult)
                     printf("%s not found\n", name);
                 else
                     printf("%s found with inumber %d\n", name, searchResult);
                 break;
+
+                /*Unlock*/
+                if(pthread_rwlock_unlock(&rwLock)) {
+                    perror("Unable to rwunlock in applyCommands()");
+                }  
             case 'd':
+                /*Lock*/
+                if(pthread_rwlock_wrlock(&rwLock)) {
+                    perror("Unable to rwlock in applyCommands()");
+                }
+
                 delete(fs, name);
+
+                /*Unlock*/
+                if(pthread_rwlock_unlock(&rwLock)) {
+                    perror("Unable to rwunlock in applyCommands()");
+                }         
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
@@ -156,8 +201,12 @@ int main(int argc, char* argv[]) {
     int numMaxThreads = atoi(argv[3]);
 
     fp = fopen(argv[2], "w");
-    if(pthread_rwlock_init(&lock, NULL)) {
-        perror("Unable to initialize lock");
+
+    if(pthread_rwlock_init(&rwLock, NULL)) {
+        perror("Unable to initialize rwLock");
+    }
+    if(pthread_mutex_init(&mutex, NULL)) {
+        perror("Unable to initialize mutex");
     }
 
     parseArgs(argc, argv);
@@ -179,6 +228,13 @@ int main(int argc, char* argv[]) {
 
     fclose(fp);
     free_tecnicofs(fs);
+
+    if(pthread_rwlock_destroy(&rwLock)) {
+        perror("Unable to detroy rwLock in main(int agrc, char* argv[]");
+    }
+    if(pthread_mutex_destroy(&mutex)) {
+        perror("Unable to detroy mutex in main(int agrc, char* argv[]");
+    }
 
     exit(EXIT_SUCCESS);
 }
