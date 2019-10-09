@@ -130,7 +130,6 @@ void *applyCommands(){
         }
 
         printf("Thread running %c command on directory %s\n", token, name);
-        /*Oi*/
        
         switch (token) {
             case 'c':
@@ -190,6 +189,11 @@ void createThreads(int numMaxThreads) {
     for(int i = 0; i < numMaxThreads; i++) {
         if(pthread_create(&(threadIds[i]), NULL, applyCommands, NULL)) {
             perror("Unable to create thread in createThreads(int numMaxThreads)");
+        }
+    }
+    for (int i = 0; i < numMaxThreads; i++) {
+        if(pthread_join(threadIds[i],NULL)) {
+            perror("Unable to terminate thread");
         }
     }
 }
