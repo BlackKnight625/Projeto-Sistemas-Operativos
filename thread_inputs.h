@@ -3,7 +3,6 @@
 
 //#include "lib/bst.h" ja esta incluido em fs.h
 #include "fs.h"
-#include <stdlib.h>
 
 /*Structs que guarda inputs para funcoes*/
 typedef struct Tecnicofs_char_int {
