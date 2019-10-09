@@ -103,20 +103,26 @@ void *applyCommands(){
     char name[MAX_INPUT_SIZE];
 
     while(numberCommands > 0){
-        const char* command = removeCommand();
-        if(command == NULL){
-            continue;
-        }
 
         /*Lock*/
         if(pthread_mutex_lock(&mutex)) {
             perror("Unable to mutex lock in applyCommands()");
         }
 
+        const char* command = removeCommand();
+        if(command == NULL){
+            continue;
+        }
+
         int numTokens = sscanf(command, "%c %s", &token, name);
 
         if(token == 'c') {
             iNumber = obtainNewInumber(fs);
+        }   
+
+        if(numTokens != 2) {
+            fprintf(stderr, "Error: invalid command in Queue\n");
+            exit(EXIT_FAILURE);
         }
 
         /*Unlock*/
@@ -124,21 +130,18 @@ void *applyCommands(){
             perror("Unable to mutex unlock in applyCommands()");
         }
 
-        if(numTokens != 2) {
-            fprintf(stderr, "Error: invalid command in Queue\n");
-            exit(EXIT_FAILURE);
-        }
-
-        printf("Thread running %c command on directory %s\n", token, name);
+        //printf("Thread running [%c] command on directory (%s)\n", token, name);
        
         switch (token) {
             case 'c':
                 /*Lock*/
+                //printf("Thread running [%c] command on directory (%s) trying to enter critical zone\n", token, name);
                 if(pthread_rwlock_wrlock(&rwLock)) {
                     perror("Unable to rwlock in applyCommands()");
                 }
-
+                //printf("Creating directory (%s) with iNumber {%d}\n", name, iNumber);
                 create(fs, name, iNumber);
+                //printf("Finished creating directory (%s) with iNumber {%d}\n", name, iNumber);
 
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
@@ -150,26 +153,26 @@ void *applyCommands(){
                 if(pthread_rwlock_rdlock(&rwLock)) {
                     perror("Unable to rwlock in applyCommands()");
                 }
-
                 searchResult = lookup(fs, name);
                 if(!searchResult)
                     printf("%s not found\n", name);
                 else
                     printf("%s found with inumber %d\n", name, searchResult);
-                break;
-
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
                     perror("Unable to rwunlock in applyCommands()");
-                }  
+                } 
+                break;
             case 'd':
                 /*Lock*/
                 if(pthread_rwlock_wrlock(&rwLock)) {
                     perror("Unable to rwlock in applyCommands()");
                 }
 
+                //printf("Deleting directory (%s) with iNumber {%d}\n", name, iNumber);
                 delete(fs, name);
-
+                //printf("Finished deleting directory (%s) with iNumber {%d}\n", name, iNumber);
+                
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
                     perror("Unable to rwunlock in applyCommands()");
@@ -181,6 +184,7 @@ void *applyCommands(){
             }
         }
     }
+    //printf("Thread ended running [%c] command on directory (%s)\n", token, name);
     return NULL;
 }
 
@@ -192,9 +196,10 @@ void createThreads(int numMaxThreads) {
         }
     }
     for (int i = 0; i < numMaxThreads; i++) {
-        if(pthread_join(threadIds[i],NULL)) {
+        if(pthread_join(threadIds[i], NULL)) {
             perror("Unable to terminate thread");
         }
+        //printf("Terminated thread %d\n", (int) threadIds[i]);
     }
 }
 
@@ -241,10 +246,10 @@ int main(int argc, char* argv[]) {
     free_tecnicofs(fs);
 
     if(pthread_rwlock_destroy(&rwLock)) {
-        perror("Unable to detroy rwLock in main(int agrc, char* argv[]");
+        perror("Unable to destroy rwLock in main(int agrc, char* argv[])");
     }
     if(pthread_mutex_destroy(&mutex)) {
-        perror("Unable to detroy mutex in main(int agrc, char* argv[]");
+        perror("Unable to destroy mutex in main(int agrc, char* argv[])");
     }
 
     exit(EXIT_SUCCESS);
