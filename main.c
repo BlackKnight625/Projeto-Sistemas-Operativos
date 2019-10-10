@@ -7,6 +7,41 @@
 #include <sys/time.h>
 #include "fs.h"
 
+/*Testar existência de macros*/
+#if defined MUTEX
+#define LOCK_COMMAND() pthread_mutex_lock(&mutexCommand) ? perror("Unable to mutex lock in applyCommands()") : NULL
+#define LOCK_WRITE_ACCESS() pthread_mutex_lock(&mutexAccess) ? perror("Unable to mutex lock in applyCommands()") : NULL
+#define LOCK_READ_ACCESS() pthread_mutex_lock(&mutexAccess) ? perror("Unable to mutex lock in applyCommands()") : NULL
+
+#define UNLOCK_COMMAND() pthread_mutex_unlock(&mutexCommand) ? perror("Unable to mutex unlock in applyCommands()") : NULL
+#define UNLOCK_ACCESS() pthread_mutex_unlock(&mutexAccess) ? perror("Unable to mutex unlock in applyCommands()") : NULL
+
+#define MULTITHREADING 1 /*true*/
+
+
+#elif defined RWLOCK
+#define LOCK_COMMAND() pthread_mutex_lock(&mutexCommand) ? perror("Unable to mutex lock in applyCommands()") : NULL
+#define LOCK_WRITE_ACCESS() pthread_rwlock_wrlock(&rwLock) ? perror("Unable to rwlock in applyCommands()") : NULL
+#define LOCK_READ_ACCESS() pthread_rwlock_rdlock(&rwLock) ? perror("Unable to rwlock in applyCommands()") : NULL
+
+#define UNLOCK_COMMAND() pthread_mutex_unlock(&mutexCommand) ? perror("Unable to mutex lock in applyCommands()") : NULL
+#define UNLOCK_ACCESS() pthread_rwlock_unlock(&rwLock) ? perror("Unable to rwlock in applyCommands()") : NULL
+
+#define MULTITHREADING 1 /*true*/
+
+/*Nenhuma macro previamente definida*/
+#else
+#define LOCK_COMMAND()
+#define LOCK_WRITE_ACCESS()
+#define LOCK_READ_ACCESS()
+
+#define UNLOCK_COMMAND()
+#define UNLOCK_ACCESS()
+
+#define MULTITHREADING 0 /*false*/
+#endif /*Teste de existência de macros*/
+
+
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
 
@@ -17,7 +52,8 @@ int headQueue = 0;
 
 /*Variáveis globais*/
 pthread_rwlock_t rwLock;
-pthread_mutex_t mutex;
+pthread_mutex_t mutexCommand;
+pthread_mutex_t mutexAccess;
 int numberThreads = 0;
 tecnicofs* fs;
 
@@ -107,10 +143,7 @@ void *applyCommands(){
 
     while(numberCommands > 0){
 
-        /*Lock*/
-        if(pthread_mutex_lock(&mutex)) {
-            perror("Unable to mutex lock in applyCommands()");
-        }
+        LOCK_COMMAND();
 
         const char* command = removeCommand();
         if(command == NULL){
@@ -128,30 +161,18 @@ void *applyCommands(){
             exit(EXIT_FAILURE);
         }
 
-        /*Unlock*/
-        if(pthread_mutex_unlock(&mutex)) {
-            perror("Unable to mutex unlock in applyCommands()");
-        }
+        UNLOCK_COMMAND();
 
         switch (token) {
             case 'c':
-                /*Lock*/
-                if(pthread_rwlock_wrlock(&rwLock)) {
-                    perror("Unable to rwlock in applyCommands()");
-                }
+                LOCK_WRITE_ACCESS();
                 
                 create(fs, name, iNumber);
 
-                /*Unlock*/
-                if(pthread_rwlock_unlock(&rwLock)) {
-                    perror("Unable to rwunlock in applyCommands()");
-                }
+                UNLOCK_ACCESS();
                 break;
             case 'l':
-                /*Lock*/
-                if(pthread_rwlock_rdlock(&rwLock)) {
-                    perror("Unable to rwlock in applyCommands()");
-                }
+                LOCK_READ_ACCESS();
 
                 searchResult = lookup(fs, name);
                 if(!searchResult)
@@ -159,23 +180,14 @@ void *applyCommands(){
                 else
                     printf("%s found with inumber %d\n", name, searchResult);
                 
-                /*Unlock*/
-                if(pthread_rwlock_unlock(&rwLock)) {
-                    perror("Unable to rwunlock in applyCommands()");
-                } 
+                UNLOCK_ACCESS();
                 break;
             case 'd':
-                /*Lock*/
-                if(pthread_rwlock_wrlock(&rwLock)) {
-                    perror("Unable to rwlock in applyCommands()");
-                }
+                LOCK_WRITE_ACCESS();
 
                 delete(fs, name);
                 
-                /*Unlock*/
-                if(pthread_rwlock_unlock(&rwLock)) {
-                    perror("Unable to rwunlock in applyCommands()");
-                }         
+                UNLOCK_ACCESS();       
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
@@ -231,8 +243,11 @@ int main(int argc, char* argv[]) {
     if(pthread_rwlock_init(&rwLock, NULL)) {
         perror("Unable to initialize rwLock");
     }
-    if(pthread_mutex_init(&mutex, NULL)) {
-        perror("Unable to initialize mutex");
+    if(pthread_mutex_init(&mutexCommand, NULL)) {
+        perror("Unable to initialize mutexCommand");
+    }
+    if(pthread_mutex_init(&mutexAccess, NULL)) {
+        perror("Unable to initialize mutexAccess");
     }
 
     parseArgs(argc, argv);
@@ -243,11 +258,17 @@ int main(int argc, char* argv[]) {
     
     double time_ini = getTime();
 
-    createThreads(numMaxThreads);
+    if(MULTITHREADING) {
+        createThreads(numMaxThreads);  
+    }
+    else {
+        applyCommands();
+    }
+
 
     double time_f = getTime();
 
-    printf("TecnicoFs completed in %0.4f seconds\n", time_f-time_ini);
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
     
 
     print_tecnicofs_tree(fp, fs);
@@ -258,8 +279,11 @@ int main(int argc, char* argv[]) {
     if(pthread_rwlock_destroy(&rwLock)) {
         perror("Unable to destroy rwLock in main(int agrc, char* argv[])");
     }
-    if(pthread_mutex_destroy(&mutex)) {
-        perror("Unable to destroy mutex in main(int agrc, char* argv[])");
+    if(pthread_mutex_destroy(&mutexCommand)) {
+        perror("Unable to destroy mutexCommand in main(int agrc, char* argv[])");
+    }
+    if(pthread_mutex_destroy(&mutexAccess)) {
+        perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
     }
 
     exit(EXIT_SUCCESS);
