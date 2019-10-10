@@ -10,8 +10,6 @@
 #define MAX_COMMANDS 150000
 #define MAX_INPUT_SIZE 100
 
-/*Definicao de structs*/
-
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
 int numberCommands = 0;
@@ -29,7 +27,7 @@ static void displayUsage (const char* appName){
     exit(EXIT_FAILURE);
 }
 
-/*Verifica e lida com os argumentos passados na consola para o programa. */
+/*Verifica que a funcao recebeu todos os argumentos*/
 static void parseArgs (long argc, char* const argv[]){
     if (argc != 4) {
         fprintf(stderr, "Invalid format:\n");
@@ -37,7 +35,7 @@ static void parseArgs (long argc, char* const argv[]){
     }
 }
 
-/*Insere o comando e seu argumento em -data- no vetor -inputCommands-*/
+/*Insere o comando fornecido por -data- no vetor -inputCommands-*/
 int insertCommand(char* data) {
     if(numberCommands != MAX_COMMANDS) {
         strcpy(inputCommands[numberCommands++], data);
@@ -46,7 +44,7 @@ int insertCommand(char* data) {
     return 0;
 }
 
-/*Devolve o proximo comando em -inputCommands-. Caso nao existe, devolve NULL*/
+/*Devolve o proximo comando em -inputCommands- */
 char* removeCommand() {
     if(numberCommands > 0){
         numberCommands--;
@@ -55,13 +53,15 @@ char* removeCommand() {
     return NULL;
 }
 
-/*Imprime "Error: command invalid"*/
+/*Funcao de erro caso os inputs nao sejam corretos*/
 void errorParse(){
     fprintf(stderr, "Error: command invalid\n");
-    //exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE);
 }
 
-/*Converte o input do ficheiro fornecido para o vetor -inputCommands-*/
+/*------------------------------------------------------------------
+Converte o input do ficheiro fornecido para o vetor -inputCommands-
+------------------------------------------------------------------*/
 void processInput(char* const argv[]){
     FILE *fp;
     fp = fopen(argv[1], "r");
@@ -95,7 +95,10 @@ void processInput(char* const argv[]){
     fclose(fp);
 }
 
-/*Corre os comandos presentes em -inputCommands-*/
+/*------------------------------------------------------------------
+Funcao responsavel por ler os comandos do vetor InputComandos
+e de aplicar os respestivos comandos
+------------------------------------------------------------------*/
 void *applyCommands(){
     int searchResult;
     int iNumber;
@@ -130,18 +133,14 @@ void *applyCommands(){
             perror("Unable to mutex unlock in applyCommands()");
         }
 
-        //printf("Thread running [%c] command on directory (%s)\n", token, name);
-       
         switch (token) {
             case 'c':
                 /*Lock*/
-                //printf("Thread running [%c] command on directory (%s) trying to enter critical zone\n", token, name);
                 if(pthread_rwlock_wrlock(&rwLock)) {
                     perror("Unable to rwlock in applyCommands()");
                 }
-                //printf("Creating directory (%s) with iNumber {%d}\n", name, iNumber);
+                
                 create(fs, name, iNumber);
-                //printf("Finished creating directory (%s) with iNumber {%d}\n", name, iNumber);
 
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
@@ -153,11 +152,13 @@ void *applyCommands(){
                 if(pthread_rwlock_rdlock(&rwLock)) {
                     perror("Unable to rwlock in applyCommands()");
                 }
+
                 searchResult = lookup(fs, name);
                 if(!searchResult)
                     printf("%s not found\n", name);
                 else
                     printf("%s found with inumber %d\n", name, searchResult);
+                
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
                     perror("Unable to rwunlock in applyCommands()");
@@ -169,9 +170,7 @@ void *applyCommands(){
                     perror("Unable to rwlock in applyCommands()");
                 }
 
-                //printf("Deleting directory (%s) with iNumber {%d}\n", name, iNumber);
                 delete(fs, name);
-                //printf("Finished deleting directory (%s) with iNumber {%d}\n", name, iNumber);
                 
                 /*Unlock*/
                 if(pthread_rwlock_unlock(&rwLock)) {
@@ -184,10 +183,13 @@ void *applyCommands(){
             }
         }
     }
-    //printf("Thread ended running [%c] command on directory (%s)\n", token, name);
     return NULL;
 }
 
+/*------------------------------------------------------------------
+Esta funcao e' responsavel por criar o numero de threads em 
+numMaxThreads e de seguida devera destrui-las
+--------------------------------------------------------------------*/
 void createThreads(int numMaxThreads) {
     pthread_t threadIds[numMaxThreads];
     for(int i = 0; i < numMaxThreads; i++) {
@@ -199,19 +201,28 @@ void createThreads(int numMaxThreads) {
         if(pthread_join(threadIds[i], NULL)) {
             perror("Unable to terminate thread");
         }
-        //printf("Terminated thread %d\n", (int) threadIds[i]);
     }
 }
 
-/* Main FUNKKKKKK */
-int main(int argc, char* argv[]) {
+/* -----------------------------------------------------------------
+Esta funcao devolve um double cujo valor e' o tempo em segundos e 
+microsegundos desde o inicio dos tempos
+------------------------------------------------------------------*/
+double getTime() {
     struct timeval tv;
-    time_t i_secs;
-    suseconds_t i_msecs;
-    time_t f_secs;
-    suseconds_t f_msecs;
-    double dt_msecs;
-    
+    double secs;
+    double msecs;
+    gettimeofday(&tv, NULL);
+    secs = (double) tv.tv_sec;
+    msecs = (double) tv.tv_usec;
+    return secs + msecs/1000000;
+}
+
+/*------------------------------------------------------------------
+Funcao main responsavel pela criacao de um tecnicofs e por chamar 
+as funcoes processInput e createThreads
+--------------------------------------------------------------------*/
+int main(int argc, char* argv[]) {
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
 
@@ -230,17 +241,14 @@ int main(int argc, char* argv[]) {
     processInput(argv);
 
     
-    gettimeofday(&tv, NULL);
-    i_secs = tv.tv_sec;
-    i_msecs = tv.tv_usec;
+    double time_ini = getTime();
 
     createThreads(numMaxThreads);
 
-    gettimeofday(&tv, NULL);
-    f_secs = tv.tv_sec;
-    f_msecs = tv.tv_usec;
-    dt_msecs = (double) (f_msecs - i_msecs)/1000000;
-    printf("%f\n", ((double)(f_secs - i_secs)) + dt_msecs);
+    double time_f = getTime();
+
+    printf("TecnicoFs completed in %0.4f seconds\n", time_f-time_ini);
+    
 
     print_tecnicofs_tree(fp, fs);
 
