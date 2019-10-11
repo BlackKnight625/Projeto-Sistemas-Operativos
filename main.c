@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include "fs.h"
 
-/*Testar existência de macros*/
+/*Testa existência de macros no compilador*/
 #if defined MUTEX
 #define LOCK_COMMAND() pthread_mutex_lock(&mutexCommand) ? perror("Unable to mutex lock in applyCommands()") : NULL
 #define LOCK_WRITE_ACCESS() pthread_mutex_lock(&mutexAccess) ? perror("Unable to mutex lock in applyCommands()") : NULL
@@ -57,9 +57,9 @@ pthread_mutex_t mutexAccess;
 int numberThreads = 0;
 tecnicofs* fs;
 
-
+/*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
-    printf("Usage: %s\n", appName);
+    printf("Usage: %s inputfile outputfile numThreads\n", appName);
     exit(EXIT_FAILURE);
 }
 

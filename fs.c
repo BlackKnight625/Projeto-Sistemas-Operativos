@@ -1,16 +1,13 @@
 #include "fs.h"
-//#include "thread_inputs.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-/*Retorna o -nextINumber- do -fs- e incrementa-o*/
 int obtainNewInumber(tecnicofs* fs) {
 	int newInumber = ++(fs->nextINumber);
 	return newInumber;
 }
 
-/*Construtor da struct -tecnicofs-*/
 tecnicofs* new_tecnicofs(){
 	tecnicofs*fs = malloc(sizeof(tecnicofs));
 	if (!fs) {
@@ -22,7 +19,6 @@ tecnicofs* new_tecnicofs(){
 	return fs;
 }
 
-/*Liberta -fs- e seus atributos da memoria*/
 void free_tecnicofs(tecnicofs* fs){
 	free_tree(fs->bstRoot);
 	free(fs);
