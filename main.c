@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <semaphore.h>
 #include "fs.h"
 
 /*Testa existência de macros no compilador*/
@@ -42,7 +43,7 @@
 #endif /*Teste de existência de macros*/
 
 
-#define MAX_COMMANDS 150000
+#define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 
 /*Vetor de Strings que guarda os comandos*/
@@ -54,7 +55,8 @@ int headQueue = 0;
 pthread_rwlock_t rwLock;
 pthread_mutex_t mutexCommand;
 pthread_mutex_t mutexAccess;
-int numberThreads = 0;
+sem_t pode_prod;
+sem_t pode_cons;
 tecnicofs* fs;
 
 /*Mostra como se chama corretamente o programa*/
@@ -65,7 +67,7 @@ static void displayUsage (const char* appName){
 
 /*Verifica que a funcao recebeu todos os argumentos*/
 static void parseArgs (long argc, char* const argv[]){
-    if (argc != 4) {
+    if (argc != 5) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
@@ -231,13 +233,23 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
+void produtor() {
+    sem_wait(&pode_prod);
+}
+
+void consumidor() {
+    sem_wait(&pode_cons);
+}
+
 /*------------------------------------------------------------------
 Funcao main responsavel pela criacao de um tecnicofs e por chamar 
 as funcoes processInput e createThreads
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
+    parseArgs(argc, argv);
     FILE *fp;
     int numMaxThreads = atoi(argv[3]);
+    int numBuckets = atoi(argv[4]);
 
     fp = fopen(argv[2], "w");
 
@@ -250,10 +262,18 @@ int main(int argc, char* argv[]) {
     if(pthread_mutex_init(&mutexAccess, NULL)) {
         perror("Unable to initialize mutexAccess");
     }
-
-    parseArgs(argc, argv);
+    if (sem_init(&pode_prod, 0, 10)) {
+        perror("Unable to iniatialize semInit");
+    }
+   if (sem_init(&pode_cons, 0, 0)) {
+        perror("Unable to iniatialize semInit");
+    }
 
     fs = new_tecnicofs();
+
+    produtor();
+    consumidor();
+
     processInput(argv);
 
     
@@ -285,6 +305,12 @@ int main(int argc, char* argv[]) {
     }
     if(pthread_mutex_destroy(&mutexAccess)) {
         perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
+    }
+    if (sem_destroy(&pode_prod)) {
+        perror("Unable to destroy semDestroy");
+    }
+   if (sem_destroy(&pode_cons)) {
+        perror("Unable to destroy semDestroy");
     }
 
     exit(EXIT_SUCCESS);
