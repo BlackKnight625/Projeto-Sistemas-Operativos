@@ -147,6 +147,7 @@ void *applyCommands(){
 
         const char* command = removeCommand();
         if(command == NULL){
+            UNLOCK_COMMAND();
             continue;
         }
 
