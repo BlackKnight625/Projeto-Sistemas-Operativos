@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <semaphore.h>
 #include "fs.h"
 #include "lib/hash.h"
 
@@ -45,7 +46,7 @@ void doNothing(int bucket);
 #endif /*Teste de existência de macros*/
 
 
-#define MAX_COMMANDS 150000
+#define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 
 /*Vetor de Strings que guarda os comandos*/
@@ -60,6 +61,8 @@ pthread_mutex_t mutexCommand;
 tecnicofs *fs;
 int numMaxThreads;
 int numBuckets;
+sem_t pode_prod;
+sem_t pode_cons;
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -247,11 +250,20 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
+void produtor() {
+    sem_wait(&pode_prod);
+}
+
+void consumidor() {
+    sem_wait(&pode_cons);
+}
+
 /*------------------------------------------------------------------
 Funcao main responsavel pela criacao de um tecnicofs e por chamar 
 as funcoes processInput e createThreads
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
+    parseArgs(argc, argv);
     FILE *fp;
 
 
@@ -265,17 +277,26 @@ int main(int argc, char* argv[]) {
         perror("Unable to initialize mutexAccess");
     }*/
 
-    parseArgs(argc, argv);
-
     if(!(fp = fopen(argv[2], "w"))) {
         perror("Unable to open file");
         exit(EXIT_FAILURE);
     }
+    
+    if (sem_init(&pode_prod, 0, 10)) {
+        perror("Unable to iniatialize semInit");
+    }
+    if (sem_init(&pode_cons, 0, 0)) {
+        perror("Unable to iniatialize semInit");
+    }
+
+
 
     processInput(argv);
 
     numMaxThreads = atoi(argv[3]);
     numBuckets = atoi(argv[4]);
+
+    fs = new_tecnicofs(numBuckets);
 
     if(numMaxThreads <= 0) {
         perror("Number of threads must be a number greater than 0");
@@ -285,8 +306,6 @@ int main(int argc, char* argv[]) {
         perror("Number of buckets must be a number greater than 0");
         exit(EXIT_FAILURE);
     }
-
-    fs = new_tecnicofs(numBuckets);
     
     double time_ini = getTime();
 
@@ -320,6 +339,13 @@ int main(int argc, char* argv[]) {
     /*if(pthread_mutex_destroy(&mutexAccess)) {
         perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
     }*/
+    
+    if (sem_destroy(&pode_prod)) {
+        perror("Unable to destroy semDestroy");
+    }
+    if (sem_destroy(&pode_cons)) {
+        perror("Unable to destroy semDestroy");
+    }
 
     exit(EXIT_SUCCESS);
 }
