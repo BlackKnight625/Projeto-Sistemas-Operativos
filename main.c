@@ -152,13 +152,10 @@ int processInput(char *line){
             case 'r':
                 if(numTokens != 2)
                     errorParse();
-                LOCK_PROD();
                 if(insertCommand(line))
                     break;
-                UNLOCK_PROD();
                 return 0; 
             case 'q':
-                LOCK_PROD();
                 strcpy(inputCommands[prodCommands], line);
                 break;
             case '#':
@@ -166,7 +163,6 @@ int processInput(char *line){
             default: { /* error */
                 errorParse();
             }
-        UNLOCK_PROD();
         }
         return 1;
     //}
@@ -368,7 +364,7 @@ void destroyLocks() {
     if (sem_destroy(&pode_prod)) {
         perror("Unable to destroy pode_prod");
     }
-   if (sem_destroy(&pode_cons)) {
+    if (sem_destroy(&pode_cons)) {
         perror("Unable to destroy pode_cons");
     }
 }
