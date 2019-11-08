@@ -152,16 +152,23 @@ int processInput(char *line){
             case 'r':
                 if(numTokens != 2)
                     errorParse();
-                if(insertCommand(line))
+                LOCK_PROD();
+                if(insertCommand(line)) {
+                    UNLOCK_PROD();
                     break;
-                return 0; 
+                }
+                UNLOCK_PROD();
+                return 0;
             case 'q':
+                LOCK_PROD();
                 strcpy(inputCommands[prodCommands], line);
+                UNLOCK_COMMAND();
                 break;
             case '#':
                 return 0;
             default: { /* error */
                 errorParse();
+                break;
             }
         }
         return 1;
@@ -337,12 +344,12 @@ void initLocks() {
     }*/
 
     if(pthread_mutex_init(&mutexProd, NULL)) {
-        perror("Unable to initialize mutexAccess");
+        perror("Unable to initialize mutexProd");
     }
-    if (sem_init(&pode_prod, 0, 10)) {
+    if (sem_init(&pode_prod, 0, MAX_COMMANDS)) {
         perror("Unable to iniatialize pode_prod");
     }
-   if (sem_init(&pode_cons, 0, 0)) {
+    if (sem_init(&pode_cons, 0, 0)) {
         perror("Unable to iniatialize pode_cons");
     }
 }
@@ -359,7 +366,7 @@ void destroyLocks() {
     }*/
 
     if(pthread_mutex_destroy(&mutexProd)) {
-        perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
+        perror("Unable to destroy mutexProd in main(int agrc, char* argv[])");
     }
     if (sem_destroy(&pode_prod)) {
         perror("Unable to destroy pode_prod");
