@@ -398,8 +398,6 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    fp = fopen(argv[2], "w");
-
     initLocks();
 
     fs = new_tecnicofs(numBuckets);
