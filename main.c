@@ -5,9 +5,10 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <semaphore.h>
 #include "fs.h"
 
-/*Testar existência de macros*/
+/*Testa existência de macros no compilador*/
 #if defined MUTEX
 #define LOCK_COMMAND() pthread_mutex_lock(&mutexCommand) ? perror("Unable to mutex lock in applyCommands()") : NULL
 #define LOCK_WRITE_ACCESS() pthread_mutex_lock(&mutexAccess) ? perror("Unable to mutex lock in applyCommands()") : NULL
@@ -32,40 +33,60 @@
 /*Nenhuma macro previamente definida*/
 #else
 #define LOCK_COMMAND()
+#define LOCK_PROD()
 #define LOCK_WRITE_ACCESS()
 #define LOCK_READ_ACCESS()
 
+#define WAIT_PODE_PROD() 
+#define WAIT_PODE_CONS() 
+#define POST_PODE_PROD() 
+#define POST_PODE_CONS() 
+
 #define UNLOCK_COMMAND()
+#define UNLOCK_PROD()
 #define UNLOCK_ACCESS()
 
 #define MULTITHREADING 0 /*false*/
 #endif /*Teste de existência de macros*/
 
+#if MULTITHREADING
+#define LOCK_PROD() pthread_mutex_lock(&mutexProd) ? perror("Unable to mutex lock in applyCommands()") : NULL
+#define UNLOCK_PROD() pthread_mutex_unlock(&mutexProd) ? perror("Unable to mutex unlock in applyCommands()") : NULL
+#define WAIT_PODE_PROD() sem_wait(&pode_prod) ? perror("Unable to sem_wait in produtor()") : NULL
+#define WAIT_PODE_CONS() sem_wait(&pode_cons) ? perror("Unable to sem_wait in consumidor()") : NULL
+#define POST_PODE_PROD() sem_post(&pode_prod) ? perror("Unable to sem_post in consumidor()") : NULL
+#define POST_PODE_CONS() sem_post(&pode_cons) ? perror("Unable to sem_post in produtor()") : NULL
+#endif 
 
-#define MAX_COMMANDS 150000
+
+#define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
 int numberCommands = 0;
+int prodCommands = 0;
+int consCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
 pthread_rwlock_t rwLock;
 pthread_mutex_t mutexCommand;
 pthread_mutex_t mutexAccess;
-int numberThreads = 0;
+pthread_mutex_t mutexProd;
+sem_t pode_prod;
+sem_t pode_cons;
 tecnicofs* fs;
 
-
+/*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
-    printf("Usage: %s\n", appName);
+    printf("Usage: %s inputfile outputfile numThreads\n", appName);
     exit(EXIT_FAILURE);
 }
 
 /*Verifica que a funcao recebeu todos os argumentos*/
 static void parseArgs (long argc, char* const argv[]){
-    if (argc != 4) {
+    if (argc != 5) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
@@ -73,8 +94,9 @@ static void parseArgs (long argc, char* const argv[]){
 
 /*Insere o comando fornecido por -data- no vetor -inputCommands-*/
 int insertCommand(char* data) {
-    if(numberCommands != MAX_COMMANDS) {
-        strcpy(inputCommands[numberCommands++], data);
+    if(prodCommands != MAX_COMMANDS) {
+        strcpy(inputCommands[prodCommands], data);
+        prodCommands = (prodCommands+1)%MAX_COMMANDS;
         return 1;
     }
     return 0;
@@ -82,9 +104,10 @@ int insertCommand(char* data) {
 
 /*Devolve o proximo comando em -inputCommands- */
 char* removeCommand() {
-    if(numberCommands > 0){
-        numberCommands--;
-        return inputCommands[headQueue++];  
+    if(strcmp(inputCommands[headQueue], "q!")){
+        char *line = inputCommands[headQueue];
+        headQueue = (headQueue+1)%MAX_COMMANDS;
+        return line;
     }
     return NULL;
 }
@@ -98,60 +121,72 @@ void errorParse(){
 /*------------------------------------------------------------------
 Converte o input do ficheiro fornecido para o vetor -inputCommands-
 ------------------------------------------------------------------*/
-void processInput(char* const argv[]){
-    FILE *fp;
-    fp = fopen(argv[1], "r");
-    char line[MAX_INPUT_SIZE];
-    while (fgets(line, sizeof(line)/sizeof(char), fp)) {
+//se retornar 0 entao nao foi inserido nada e nao podemos 
+//fazer sem_post, o consumidor ainda nao pode consumir
+int processInput(char *line){
+    //while (fgets(line, sizeof(line)/sizeof(char), fp)) {
         char token;
         char name[MAX_INPUT_SIZE];
 
         int numTokens = sscanf(line, "%c %s", &token, name);
-
+        //printf("numTokens: %d\n", numTokens);
         /* perform minimal validation */
         if (numTokens < 1) {
-            continue;
+            return 0;
         }
         switch (token) {
             case 'c':
             case 'l':
             case 'd':
+            case 'r':
                 if(numTokens != 2)
                     errorParse();
-                if(insertCommand(line))
+                LOCK_PROD();
+                if(insertCommand(line)) {
+                    UNLOCK_PROD();
                     break;
-                return;
-            case '#':
+                }
+                UNLOCK_PROD();
+                return 0; 
+            case 'q':
+                LOCK_PROD();
+                strcpy(inputCommands[prodCommands], line);
+                UNLOCK_PROD();
                 break;
+            case '#':
+                return 0;
             default: { /* error */
                 errorParse();
             }
         }
-    }
-    fclose(fp);
+        return 1;
+    //}
 }
 
 /*------------------------------------------------------------------
 Funcao responsavel por ler os comandos do vetor InputComandos
 e de aplicar os respestivos comandos
 ------------------------------------------------------------------*/
-void *applyCommands(){
+void applyCommands(){
     int searchResult;
     int iNumber;
     char token;
     char name[MAX_INPUT_SIZE];
+    char currentName[100];
+    char newName[100];
 
-    while(numberCommands > 0){
+    //while(!endOfFile){
 
         LOCK_COMMAND();
 
         const char* command = removeCommand();
         if(command == NULL){
-            continue;
+            UNLOCK_COMMAND();
+            return;
         }
-
+        //printf("reading command: %s", command);
         int numTokens = sscanf(command, "%c %s", &token, name);
-
+        //printf("%d\n", numTokens);
         if(token == 'c') {
             iNumber = obtainNewInumber(fs);
         }   
@@ -189,31 +224,26 @@ void *applyCommands(){
                 
                 UNLOCK_ACCESS();       
                 break;
+            case 'q':
+                if (*name == '!')
+                    break;
+                printf("Error: endOfFile not reached\n");
+                break;
+            case 'r':
+                sscanf((command+2), "%s %s", currentName, newName);
+                searchResult = lookup(fs, currentName);
+                if (searchResult && !lookup(fs, newName)) {
+                    delete(fs, currentName);
+                    create(fs, newName, searchResult);
+                }
+                break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
                 exit(EXIT_FAILURE);
             }
         }
-    }
-    return NULL;
-}
-
-/*------------------------------------------------------------------
-Esta funcao e' responsavel por criar o numero de threads em 
-numMaxThreads e de seguida devera destrui-las
---------------------------------------------------------------------*/
-void createThreads(int numMaxThreads) {
-    pthread_t threadIds[numMaxThreads];
-    for(int i = 0; i < numMaxThreads; i++) {
-        if(pthread_create(&(threadIds[i]), NULL, applyCommands, NULL)) {
-            perror("Unable to create thread in createThreads(int numMaxThreads)");
-        }
-    }
-    for (int i = 0; i < numMaxThreads; i++) {
-        if(pthread_join(threadIds[i], NULL)) {
-            perror("Unable to terminate thread");
-        }
-    }
+    //}
+    //return NULL;
 }
 
 /* -----------------------------------------------------------------
@@ -230,16 +260,63 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
-/*------------------------------------------------------------------
-Funcao main responsavel pela criacao de um tecnicofs e por chamar 
-as funcoes processInput e createThreads
---------------------------------------------------------------------*/
-int main(int argc, char* argv[]) {
+void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
+    for (int i = 0; i < numMaxThreads; i++) {
+        if(pthread_join(threadIds[i], NULL)) {
+            perror("Unable to terminate thread");
+        }
+    }
+}
+
+//TODO
+void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
     FILE *fp;
-    int numMaxThreads = atoi(argv[3]);
+    fp = fopen(argv[1], "r");
+    char line[MAX_INPUT_SIZE];
+    int status;
+    while (fgets(line, sizeof(line)/sizeof(char), fp)) {
+        WAIT_PODE_PROD();
+        status = processInput(line);
+        if (status) { POST_PODE_CONS(); }
+    }
+    WAIT_PODE_PROD();
+    processInput("q!");
+    POST_PODE_CONS();
+    destroyThreads(threadIds, numMaxThreads);
+    fclose(fp);
+}
 
-    fp = fopen(argv[2], "w");
+//TODO
+void *consumidor() {
+    while (1) {
+        LOCK_COMMAND();
+        if (strcmp(inputCommands[headQueue], "q!")) {
+            UNLOCK_COMMAND();
+            WAIT_PODE_CONS();
+            applyCommands();
+            POST_PODE_PROD();
+        }
+        else {
+            UNLOCK_COMMAND();
+            POST_PODE_CONS();
+            return NULL;
+        }
+    }
+}
 
+/*------------------------------------------------------------------
+Esta funcao e' responsavel por criar o numero de threads em 
+numMaxThreads e de seguida devera destrui-las
+--------------------------------------------------------------------*/
+void createThreads(pthread_t threadIds[], int numMaxThreads) {
+    for(int i = 0; i < numMaxThreads; i++) {
+        if(pthread_create(&(threadIds[i]), NULL, consumidor, NULL)) {
+            perror("Unable to create thread in createThreads(int numMaxThreads)");
+        }
+    }
+}
+
+void initLocks() {
     if(pthread_rwlock_init(&rwLock, NULL)) {
         perror("Unable to initialize rwLock");
     }
@@ -249,33 +326,18 @@ int main(int argc, char* argv[]) {
     if(pthread_mutex_init(&mutexAccess, NULL)) {
         perror("Unable to initialize mutexAccess");
     }
-
-    parseArgs(argc, argv);
-
-    fs = new_tecnicofs();
-    processInput(argv);
-
-    
-    double time_ini = getTime();
-
-    if(MULTITHREADING) {
-        createThreads(numMaxThreads);  
+    if(pthread_mutex_init(&mutexProd, NULL)) {
+        perror("Unable to initialize mutexAccess");
     }
-    else {
-        applyCommands();
+    if (sem_init(&pode_prod, 0, 10)) {
+        perror("Unable to iniatialize pode_prod");
     }
+   if (sem_init(&pode_cons, 0, 0)) {
+        perror("Unable to iniatialize pode_cons");
+    }
+}
 
-
-    double time_f = getTime();
-
-    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
-    
-
-    print_tecnicofs_tree(fp, fs);
-
-    fclose(fp);
-    free_tecnicofs(fs);
-
+void destroyLocks() {
     if(pthread_rwlock_destroy(&rwLock)) {
         perror("Unable to destroy rwLock in main(int agrc, char* argv[])");
     }
@@ -285,6 +347,54 @@ int main(int argc, char* argv[]) {
     if(pthread_mutex_destroy(&mutexAccess)) {
         perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
     }
+    if(pthread_mutex_destroy(&mutexProd)) {
+        perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
+    }
+    if (sem_destroy(&pode_prod)) {
+        perror("Unable to destroy pode_prod");
+    }
+   if (sem_destroy(&pode_cons)) {
+        perror("Unable to destroy pode_cons");
+    }
+}
+
+/*------------------------------------------------------------------
+Funcao main responsavel pela criacao de um tecnicofs e por chamar 
+as funcoes processInput e createThreads
+--------------------------------------------------------------------*/
+int main(int argc, char* argv[]) {
+    parseArgs(argc, argv);
+    FILE *fp;
+    int numMaxThreads = atoi(argv[3]);
+    //int numBuckets = atoi(argv[4]);
+    pthread_t threadIds[numMaxThreads];
+
+    fp = fopen(argv[2], "w");
+
+    initLocks();
+
+    fs = new_tecnicofs();
+
+    double time_ini = getTime();
+
+    if (MULTITHREADING) {
+        createThreads(threadIds, numMaxThreads);
+    }
+    else {
+        numMaxThreads = 1;
+        createThreads(threadIds, numMaxThreads);
+    }
+    produtor(argv, threadIds, numMaxThreads);
+
+    double time_f = getTime();
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
+
+    print_tecnicofs_tree(fp, fs);
+
+    fclose(fp);
+    free_tecnicofs(fs);
+
+    destroyLocks();
 
     exit(EXIT_SUCCESS);
 }
