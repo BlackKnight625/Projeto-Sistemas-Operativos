@@ -178,7 +178,6 @@ void multipleLock(char *currentName, char *newName) {
     int newBucket = hash(newName, numBuckets);
     if (bucket == newBucket) {
         LOCK_WRITE_ACCESS(bucket);
-        return;
     }
     else if (bucket < newBucket) {
         LOCK_WRITE_ACCESS(bucket);
