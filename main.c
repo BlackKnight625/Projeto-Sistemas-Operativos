@@ -41,11 +41,6 @@ void doNothing(int bucket);
 #define LOCK_WRITE_ACCESS(bucket) doNothing(bucket)
 #define LOCK_READ_ACCESS(bucket) doNothing(bucket)
 
-#define WAIT_PODE_PROD() 
-#define WAIT_PODE_CONS() 
-#define POST_PODE_PROD() 
-#define POST_PODE_CONS() 
-
 #define UNLOCK_COMMAND()
 #define UNLOCK_PROD()
 #define UNLOCK_ACCESS(bucket) doNothing(bucket)
@@ -56,11 +51,12 @@ void doNothing(int bucket);
 #if MULTITHREADING
 #define LOCK_PROD() if(pthread_mutex_lock(&mutexProd)) perror("Unable to mutex lock in applyCommands()")
 #define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock in applyCommands()")
+#endif 
+
 #define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to sem_wait in produtor()")
 #define WAIT_PODE_CONS() if(sem_wait(&pode_cons)) perror("Unable to sem_wait in consumidor()")
 #define POST_PODE_PROD() if(sem_post(&pode_prod)) perror("Unable to sem_post in consumidor()")
 #define POST_PODE_CONS() if(sem_post(&pode_cons)) perror("Unable to sem_post in produtor()")
-#endif 
 
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
@@ -74,7 +70,7 @@ int consCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
-pthread_rwlock_t rwLock;
+//pthread_rwlock_t rwLock;
 pthread_mutex_t mutexCommand;
 pthread_mutex_t mutexProd;
 /*pthread_mutex_t mutexAccess;*/
