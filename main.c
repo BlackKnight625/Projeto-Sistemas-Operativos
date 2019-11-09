@@ -170,6 +170,29 @@ int processInput(char *line){
     //}
 }
 
+/*A ordem definida para fazer lock e' sempre lockar o 
+menor bucket primeiro*/
+void multipleLock(char *currentName, char *newName) {
+    int currentBucket = hash(currentName, numBuckets);
+    int bucket = currentBucket;
+    int newBucket = hash(newName, numBuckets);
+    if (bucket == newBucket) {
+        LOCK_WRITE_ACCESS(bucket);
+        return;
+    }
+    else if (bucket < newBucket) {
+        LOCK_WRITE_ACCESS(bucket);
+        bucket = newBucket;
+        LOCK_WRITE_ACCESS(bucket);
+    }
+    else {
+        bucket = newBucket;
+        LOCK_WRITE_ACCESS(bucket);
+        bucket = currentBucket;
+        LOCK_WRITE_ACCESS(bucket);
+    }
+}
+
 /*------------------------------------------------------------------
 Funcao responsavel por ler os comandos do vetor InputComandos
 e de aplicar os respestivos comandos
@@ -241,11 +264,30 @@ void applyCommands(){
                 break;
             case 'r':
                 sscanf((command+2), "%s %s", currentName, newName);
+
+                bucket = hash(currentName, numBuckets);
+                LOCK_READ_ACCESS(bucket);
                 searchResult = lookup(fs, currentName);
+                UNLOCK_ACCESS(bucket);
+            
+                bucket = hash(newName, numBuckets);
+                LOCK_READ_ACCESS(bucket);
+
                 if (searchResult && !lookup(fs, newName)) {
+                    UNLOCK_ACCESS(bucket);
+                    multipleLock(currentName, newName);
                     delete(fs, currentName);
                     create(fs, newName, searchResult);
+                    
+                    bucket = hash(currentName, numBuckets);
+                    UNLOCK_ACCESS(bucket);
+                    int newBucket = hash(newName, numBuckets);
+                    if (bucket != newBucket) {
+                        bucket = newBucket;
+                        UNLOCK_ACCESS(bucket);
+                    }
                 }
+                UNLOCK_ACCESS(bucket);
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
