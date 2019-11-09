@@ -54,17 +54,18 @@ void doNothing(int bucket);
 #endif /*Teste de existência de macros*/
 
 #if MULTITHREADING
-#define LOCK_PROD() pthread_mutex_lock(&mutexProd) ? perror("Unable to mutex lock in applyCommands()") : NULL
-#define UNLOCK_PROD() pthread_mutex_unlock(&mutexProd) ? perror("Unable to mutex unlock in applyCommands()") : NULL
-#define WAIT_PODE_PROD() sem_wait(&pode_prod) ? perror("Unable to sem_wait in produtor()") : NULL
-#define WAIT_PODE_CONS() sem_wait(&pode_cons) ? perror("Unable to sem_wait in consumidor()") : NULL
-#define POST_PODE_PROD() sem_post(&pode_prod) ? perror("Unable to sem_post in consumidor()") : NULL
-#define POST_PODE_CONS() sem_post(&pode_cons) ? perror("Unable to sem_post in produtor()") : NULL
+#define LOCK_PROD() if(pthread_mutex_lock(&mutexProd)) perror("Unable to mutex lock in applyCommands()")
+#define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock in applyCommands()")
+#define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to sem_wait in produtor()")
+#define WAIT_PODE_CONS() if(sem_wait(&pode_cons)) perror("Unable to sem_wait in consumidor()")
+#define POST_PODE_PROD() if(sem_post(&pode_prod)) perror("Unable to sem_post in consumidor()")
+#define POST_PODE_CONS() if(sem_post(&pode_cons)) perror("Unable to sem_post in produtor()")
 #endif 
 
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
+#define EXIT_COMMAND 'q'
 
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
@@ -81,6 +82,7 @@ pthread_mutex_t mutexProd;
 tecnicofs *fs;
 int numMaxThreads;
 int numBuckets;
+int status = 1; /*status = 1 while a consumer hasn't yet read the EXIT_COMMAND*/
 sem_t pode_prod;
 sem_t pode_cons;
 
@@ -103,23 +105,16 @@ void doNothing(int bucket) {
 }
 
 /*Insere o comando fornecido por -data- no vetor -inputCommands-*/
-int insertCommand(char* data) {
-    if(prodCommands != MAX_COMMANDS) {
-        strcpy(inputCommands[prodCommands], data);
-        prodCommands = (prodCommands+1)%MAX_COMMANDS;
-        return 1;
-    }
-    return 0;
+void insertCommand(char* data) {
+    strcpy(inputCommands[prodCommands], data);
+    prodCommands = (prodCommands+1)%MAX_COMMANDS;
 }
 
 /*Devolve o proximo comando em -inputCommands- */
 char* removeCommand() {
-    if(strcmp(inputCommands[headQueue], "q!")){
-        char *line = inputCommands[headQueue];
-        headQueue = (headQueue+1)%MAX_COMMANDS;
-        return line;
-    }
-    return NULL;
+    char *line = inputCommands[headQueue];
+    headQueue = (headQueue+1)%MAX_COMMANDS;
+    return line;
 }
 
 /*Funcao de erro caso os inputs nao sejam corretos*/
@@ -134,44 +129,60 @@ Termina se nao conseguir abrir o ficheiro dado em argv
 ------------------------------------------------------------------*/
 //se retornar 0 entao nao foi inserido nada e nao podemos 
 //fazer sem_post, o consumidor ainda nao pode consumir
-int processInput(char *line){
+void processInput(char *line){
     //while (fgets(line, sizeof(line)/sizeof(char), fp)) {
         char token;
         char name[MAX_INPUT_SIZE];
 
         int numTokens = sscanf(line, "%c %s", &token, name);
         //printf("numTokens: %d\n", numTokens);
+        //printf("Command being processed: %c, arguments: %s\n", token, name);
         /* perform minimal validation */
         if (numTokens < 1) {
-            return 0;
+            perror("An empty line was processed in processInput(char* line)");
+            return;
         }
+
         switch (token) {
             case 'c':
             case 'l':
             case 'd':
-            case 'r':
-                if(numTokens != 2)
+                if(numTokens != 2) {
                     errorParse();
-                LOCK_PROD();
-                if(insertCommand(line)) {
-                    UNLOCK_PROD();
-                    break;
+                    return;
                 }
-                UNLOCK_PROD();
-                return 0;
-            case 'q':
+                WAIT_PODE_PROD();
                 LOCK_PROD();
-                strcpy(inputCommands[prodCommands], line);
-                UNLOCK_COMMAND();
+                insertCommand(line);
+                UNLOCK_PROD();
+                POST_PODE_CONS();
+                break;
+            case 'r':
+                if(numTokens != 3) {
+                    errorParse();
+                    return;
+                }
+                WAIT_PODE_PROD();
+                LOCK_PROD();
+                insertCommand(line);
+                UNLOCK_PROD();
+                POST_PODE_CONS();
+                break;
+            case EXIT_COMMAND:
+                WAIT_PODE_PROD();
+                LOCK_PROD();
+                //printf("INSERTING QUIT COMMAND\n");
+                insertCommand(line);
+                UNLOCK_PROD();
+                POST_PODE_CONS();
                 break;
             case '#':
-                return 0;
+                break;
             default: { /* error */
                 errorParse();
                 break;
             }
         }
-        return 1;
     //}
 }
 
@@ -190,16 +201,22 @@ void applyCommands(){
 
     //while(!endOfFile){
 
+        WAIT_PODE_CONS();
+        //printf("Can consume. Going to consume\n");
         LOCK_COMMAND();
-
-        const char* command = removeCommand();
-        if(command == NULL){
+        //printf("Command currently on headQueue: %c\n", inputCommands[headQueue][0]);
+        if(inputCommands[headQueue][0] == EXIT_COMMAND) {
+            status = 0;
             UNLOCK_COMMAND();
+            //printf("Command 'q' read, status changed to 0\n");
+            POST_PODE_CONS();
             return;
         }
-        //printf("reading command: %s", command);
+
+        const char* command = removeCommand();
+
         int numTokens = sscanf(command, "%c %s", &token, name);
-        //printf("%d\n", numTokens);
+        //printf("Command read- token: %c, name- %s\n", token, name);
 
         bucket = hash(name, numBuckets);
 
@@ -207,22 +224,28 @@ void applyCommands(){
             iNumber = obtainNewInumber(fs);
         }   
 
-        if(numTokens != 2) {
-            fprintf(stderr, "Error: invalid command in Queue\n");
-            exit(EXIT_FAILURE);
-        }
-
         UNLOCK_COMMAND();
 
         switch (token) {
             case 'c':
+                if(numTokens != 2) {
+                    fprintf(stderr, "Error: command 'c' can only have 1 argument\n");
+                    break;
+                }
+
                 LOCK_WRITE_ACCESS(bucket);
                 
                 create(fs, name, iNumber);
 
                 UNLOCK_ACCESS(bucket);
+                POST_PODE_PROD();
                 break;
             case 'l':
+                if(numTokens != 2) {
+                    fprintf(stderr, "Error: command 'l' can only have 1 argument\n");
+                    break;
+                }
+
                 LOCK_READ_ACCESS(bucket);
 
                 searchResult = lookup(fs, name);
@@ -232,32 +255,40 @@ void applyCommands(){
                     printf("%s found with inumber %d\n", name, searchResult);
                 
                 UNLOCK_ACCESS(bucket);
+                POST_PODE_PROD();
                 break;
             case 'd':
+                if(numTokens != 2) {
+                    fprintf(stderr, "Error: command 'd' can only have 1 argument\n");
+                    break;
+                }
+
                 LOCK_WRITE_ACCESS(bucket);
 
                 delete(fs, name);
                 
-                UNLOCK_ACCESS(bucket);       
-                break;
-            case 'q':
-                if (*name == '!')
-                    break;
-                printf("Error: endOfFile not reached\n");
+                UNLOCK_ACCESS(bucket);
+                POST_PODE_PROD();       
                 break;
             case 'r':
+                if(numTokens != 3) {
+                    fprintf(stderr, "Error: command 'r' can only have 2 argument\n");
+                    break;
+                }
+
                 sscanf((command+2), "%s %s", currentName, newName);
                 searchResult = lookup(fs, currentName);
                 if (searchResult && !lookup(fs, newName)) {
                     delete(fs, currentName);
                     create(fs, newName, searchResult);
                 }
+                POST_PODE_PROD();
                 break;
-            default: { /* error */
+            default:  /* error */
                 fprintf(stderr, "Error: command to apply\n");
-                exit(EXIT_FAILURE);
-            }
+                break;
         }
+        //printf("Pode produzir\n");
     //}
     //return NULL;
 }
@@ -281,6 +312,7 @@ void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
         if(pthread_join(threadIds[i], NULL)) {
             perror("Unable to terminate thread");
         }
+        //printf("A THREAD finished his job\n");
     }
 }
 
@@ -289,15 +321,12 @@ void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
     FILE *fp;
     fp = fopen(argv[1], "r");
     char line[MAX_INPUT_SIZE];
-    int status;
     while (fgets(line, sizeof(line)/sizeof(char), fp)) {
-        WAIT_PODE_PROD();
-        status = processInput(line);
-        if (status) { POST_PODE_CONS(); }
+        //printf("Going to process line: %s\n", line);
+        processInput(line);
     }
-    WAIT_PODE_PROD();
-    processInput("q!");
-    POST_PODE_CONS();
+    processInput("q");
+    //printf("Going to destroy threads\n");
     destroyThreads(threadIds, numMaxThreads);
     fclose(fp);
 }
@@ -306,15 +335,13 @@ void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
 void *consumidor() {
     while (1) {
         LOCK_COMMAND();
-        if (strcmp(inputCommands[headQueue], "q!")) {
+        if (status) {
             UNLOCK_COMMAND();
-            WAIT_PODE_CONS();
             applyCommands();
-            POST_PODE_PROD();
         }
         else {
+            //printf("Status false. Terminating thread\n");
             UNLOCK_COMMAND();
-            POST_PODE_PROD();
             return NULL;
         }
     }
