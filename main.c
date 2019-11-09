@@ -261,24 +261,19 @@ void applyCommands(){
                 int currentBucket = hash(currentName, numBuckets);
                 int newBucket = hash(newName, numBuckets);
 
-                LOCK_READ_ACCESS(currentBucket);
+                multipleLock(currentBucket, newBucket);
+
                 searchResult = lookup(fs, currentName);
-                UNLOCK_ACCESS(currentBucket);
-            
-                LOCK_READ_ACCESS(newBucket);
 
                 if (searchResult && !lookup(fs, newName)) {
-                    UNLOCK_ACCESS(newBucket);
-                    multipleLock(currentBucket, newBucket);
                     delete(fs, currentName);
                     create(fs, newName, searchResult);
-                    
-                    UNLOCK_ACCESS(currentBucket);
-                    if (currentBucket != newBucket) {
-                        UNLOCK_ACCESS(newBucket);
-                    }
                 }
-                UNLOCK_ACCESS(newBucket);
+
+                UNLOCK_ACCESS(currentBucket);
+                if (currentBucket != newBucket) {
+                    UNLOCK_ACCESS(newBucket);
+                }
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
