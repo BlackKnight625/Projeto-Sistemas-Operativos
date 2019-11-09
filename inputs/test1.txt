@@ -10,5 +10,7 @@ c h
 r b bbbbbb
 r c abc
 r d miguel
+r a b
+r b a
 l e
 d c

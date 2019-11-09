@@ -7,7 +7,6 @@ for f in $(ls $inputdir)
 do
     inputfile=$inputdir/$f
     outputfile=$outputdir/$f-1.txt
-    touch $outputfile
     echo Inputfile=$inputfile Numthreads=1
     ./tecnicofs-nosync $inputfile $outputfile 1 1 | grep TecnicoFs
 done
@@ -17,7 +16,6 @@ do
     do
         inputfile=$inputdir/$f
         outputfile=$outputdir/$f-$numthreads.txt
-        touch $outputfile
         echo Inputfile=$inputfile Numthreads=$numthreads
         ./tecnicofs-mutex $inputfile $outputfile $numthreads $numbuckets | grep TecnicoFs
     done
