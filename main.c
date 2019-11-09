@@ -173,7 +173,6 @@ int processInput(char *line){
 /*A ordem definida para fazer lock e' sempre lockar o 
 menor bucket primeiro*/
 void multipleLock(int currentBucket, int newBucket) {
-    printf("Locking tree number: %d and: %d\n", currentBucket, newBucket);
     if (currentBucket == newBucket) {
         LOCK_WRITE_ACCESS(currentBucket);
     }
@@ -268,23 +267,13 @@ void applyCommands(){
 
                 if (searchResult && !lookup(fs, newName)) {
                     delete(fs, currentName);
-                    create(fs, newName, searchResult);                    
-                }
-                else if(!searchResult) {
-                    perror("Trying to rename an unexistent file");
-                }
-                else {
-                    perror("Rename name already exists");
+                    create(fs, newName, searchResult);
                 }
 
-
+                UNLOCK_ACCESS(currentBucket);
                 if (currentBucket != newBucket) {
-                    printf("Unlocking tree: %d\n", newBucket);
                     UNLOCK_ACCESS(newBucket);
                 }
-                printf("Unlocking tree: %d\n", currentBucket);
-                UNLOCK_ACCESS(currentBucket);
-                
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
