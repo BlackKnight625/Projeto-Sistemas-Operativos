@@ -172,24 +172,17 @@ int processInput(char *line){
 
 /*A ordem definida para fazer lock e' sempre lockar o 
 menor bucket primeiro*/
-void multipleLock(char *currentName, char *newName) {
-    int currentBucket = hash(currentName, numBuckets);
-    int bucket = currentBucket;
-    int newBucket = hash(newName, numBuckets);
-    if (bucket == newBucket) {
-        LOCK_WRITE_ACCESS(bucket);
-        return;
+void multipleLock(int currentBucket, int newBucket) {
+    if (currentBucket == newBucket) {
+        LOCK_WRITE_ACCESS(currentBucket);
     }
-    else if (bucket < newBucket) {
-        LOCK_WRITE_ACCESS(bucket);
-        bucket = newBucket;
-        LOCK_WRITE_ACCESS(bucket);
+    else if (currentBucket < newBucket) {
+        LOCK_WRITE_ACCESS(currentBucket);
+        LOCK_WRITE_ACCESS(newBucket);
     }
     else {
-        bucket = newBucket;
-        LOCK_WRITE_ACCESS(bucket);
-        bucket = currentBucket;
-        LOCK_WRITE_ACCESS(bucket);
+        LOCK_WRITE_ACCESS(newBucket);
+        LOCK_WRITE_ACCESS(currentBucket);
     }
 }
 
@@ -265,29 +258,27 @@ void applyCommands(){
             case 'r':
                 sscanf((command+2), "%s %s", currentName, newName);
 
-                bucket = hash(currentName, numBuckets);
-                LOCK_READ_ACCESS(bucket);
+                int currentBucket = hash(currentName, numBuckets);
+                int newBucket = hash(newName, numBuckets);
+
+                LOCK_READ_ACCESS(currentBucket);
                 searchResult = lookup(fs, currentName);
-                UNLOCK_ACCESS(bucket);
+                UNLOCK_ACCESS(currentBucket);
             
-                bucket = hash(newName, numBuckets);
-                LOCK_READ_ACCESS(bucket);
+                LOCK_READ_ACCESS(newBucket);
 
                 if (searchResult && !lookup(fs, newName)) {
-                    UNLOCK_ACCESS(bucket);
-                    multipleLock(currentName, newName);
+                    UNLOCK_ACCESS(newBucket);
+                    multipleLock(currentBucket, newBucket);
                     delete(fs, currentName);
                     create(fs, newName, searchResult);
                     
-                    bucket = hash(currentName, numBuckets);
-                    UNLOCK_ACCESS(bucket);
-                    int newBucket = hash(newName, numBuckets);
-                    if (bucket != newBucket) {
-                        bucket = newBucket;
-                        UNLOCK_ACCESS(bucket);
+                    UNLOCK_ACCESS(currentBucket);
+                    if (currentBucket != newBucket) {
+                        UNLOCK_ACCESS(newBucket);
                     }
                 }
-                UNLOCK_ACCESS(bucket);
+                UNLOCK_ACCESS(newBucket);
                 break;
             default: { /* error */
                 fprintf(stderr, "Error: command to apply\n");
