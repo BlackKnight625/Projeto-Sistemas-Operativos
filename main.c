@@ -99,13 +99,9 @@ void doNothing(int bucket) {
 }
 
 /*Insere o comando fornecido por -data- no vetor -inputCommands-*/
-int insertCommand(char* data) {
-    if(prodCommands != MAX_COMMANDS) {
-        strcpy(inputCommands[prodCommands], data);
-        prodCommands = (prodCommands+1)%MAX_COMMANDS;
-        return 1;
-    }
-    return 0;
+void insertCommand(char* data) {
+    strcpy(inputCommands[prodCommands], data);
+    prodCommands = (prodCommands+1)%MAX_COMMANDS;
 }
 
 /*Devolve o proximo comando em -inputCommands- */
@@ -148,12 +144,9 @@ int processInput(char *line){
                 if(numTokens != 2)
                     errorParse();
                 LOCK_PROD();
-                if(insertCommand(line)) {
-                    UNLOCK_PROD();
-                    break;
-                }
+                insertCommand(line)
                 UNLOCK_PROD();
-                return 0; 
+                    break;
             case 'q':
                 LOCK_PROD();
                 strcpy(inputCommands[prodCommands], line);
