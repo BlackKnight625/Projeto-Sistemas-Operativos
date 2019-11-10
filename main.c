@@ -13,23 +13,23 @@ void doNothing(int bucket);
 
 /*Testa existência de macros no compilador*/
 #if defined MUTEX
-#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock in applyCommands()")
-#define LOCK_WRITE_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock in applyCommands()") 
-#define LOCK_READ_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock in applyCommands()") 
+#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock LOCK_COMMAND")
+#define LOCK_WRITE_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock LOCK_WRITE_ACCESS") 
+#define LOCK_READ_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock LOCK_READ_ACCESS") 
 
-#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex unlock in applyCommands()") 
-#define UNLOCK_ACCESS(bucket) if (pthread_mutex_unlock(&fs->mutexs[bucket])) perror("Unable to mutex unlock in applyCommands()") 
+#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex unlock UNLOCK_COMMAND") 
+#define UNLOCK_ACCESS(bucket) if (pthread_mutex_unlock(&fs->mutexs[bucket])) perror("Unable to mutex unlock UNLOCK_ACCESS") 
 
 #define MULTITHREADING 1 /*true*/
 
 
 #elif defined RWLOCK
-#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock in applyCommands()") 
-#define LOCK_WRITE_ACCESS(bucket) if (pthread_rwlock_wrlock(&fs->rwlocks[bucket])) perror("Unable to rwlock in applyCommands()") 
-#define LOCK_READ_ACCESS(bucket) if (pthread_rwlock_rdlock(&fs->rwlocks[bucket])) perror("Unable to rwlock in applyCommands()") 
+#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock LOCK_COMMAND") 
+#define LOCK_WRITE_ACCESS(bucket) if (pthread_rwlock_wrlock(&fs->rwlocks[bucket])) perror("Unable to rwlock LOCK_WRITE_ACCESS") 
+#define LOCK_READ_ACCESS(bucket) if (pthread_rwlock_rdlock(&fs->rwlocks[bucket])) perror("Unable to rwlock LOCK_READ_ACCESS") 
 
-#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex lock in applyCommands()") 
-#define UNLOCK_ACCESS(bucket) if (pthread_rwlock_unlock(&fs->rwlocks[bucket])) perror("Unable to rwlock in applyCommands()")
+#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex lock UNLOCK_COMMAND") 
+#define UNLOCK_ACCESS(bucket) if (pthread_rwlock_unlock(&fs->rwlocks[bucket])) perror("Unable to rwlock UNLOCK_ACCESS")
 
 #define MULTITHREADING 1 /*true*/
 
@@ -49,8 +49,8 @@ void doNothing(int bucket);
 #endif /*Teste de existência de macros*/
 
 #if MULTITHREADING
-#define LOCK_PROD() if(pthread_mutex_lock(&mutexProd)) perror("Unable to mutex lock in applyCommands()")
-#define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock in applyCommands()")
+#define LOCK_PROD() if(pthread_mutex_lock(&mutexProd)) perror("Unable to mutex lock LOCK_PROD")
+#define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock UNLOCK_PROD")
 #endif 
 
 #define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to sem_wait in produtor()")
@@ -125,18 +125,17 @@ void errorParse(){
 }
 
 /*------------------------------------------------------------------
-Converte o input do ficheiro fornecido para o vetor -inputCommands-
-Termina se nao conseguir abrir o ficheiro dado em argv
+Converte o input fornecido por line para o vetor -inputCommands-
+Devolve 0 se nao tiver sido inserido nenhum comando,
+devolve 1 caso contrario
 ------------------------------------------------------------------*/
-//se retornar 0 entao nao foi inserido nada e nao podemos 
-//fazer sem_post, o consumidor ainda nao pode consumir
 int processInput(char *line){
     //while (fgets(line, sizeof(line)/sizeof(char), fp)) {
         char token;
         char name[MAX_INPUT_SIZE];
 
         int numTokens = sscanf(line, "%c %s", &token, name);
-        //printf("numTokens: %d\n", numTokens);
+
         /* perform minimal validation */
         if (numTokens < 1) {
             return 0;
@@ -170,8 +169,11 @@ int processInput(char *line){
     //}
 }
 
-/*A ordem definida para fazer lock e' sempre lockar o 
-menor bucket primeiro*/
+/*------------------------------------------------------------------
+Funcao auxiliar para tratar do caso rename. De forma a evitar 
+interblocagem, decidimos fazer lock aos respetivos mutexs/rwlocks
+pela seguinte ordem: Deve-se lockar o menor bucket primeiro
+------------------------------------------------------------------*/
 void multipleLock(int currentBucket, int newBucket) {
     if (currentBucket == newBucket) {
         LOCK_WRITE_ACCESS(currentBucket);
@@ -187,8 +189,8 @@ void multipleLock(int currentBucket, int newBucket) {
 }
 
 /*------------------------------------------------------------------
-Funcao responsavel por ler os comandos do vetor InputComandos
-e de aplicar os respestivos comandos
+Funcao responsavel por ler um comando do vetor -InputCommands-
+e de o executar. Esta funcao e' chamada pelo consumidor
 ------------------------------------------------------------------*/
 void applyCommands(){
     int searchResult;
@@ -298,6 +300,10 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
+/*------------------------------------------------------------------
+Funcao responsavel por destroir as tarefas inicializadas 
+no vetor -threadsId-
+------------------------------------------------------------------*/
 void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
     for (int i = 0; i < numMaxThreads; i++) {
         if(pthread_join(threadIds[i], NULL)) {
@@ -306,7 +312,10 @@ void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
     }
 }
 
-//TODO
+/*------------------------------------------------------------------
+Funcao chamada pela tarefa inicial para carregar os comandos do
+ficheiro e inserir no vetor -inputCommands-
+------------------------------------------------------------------*/
 void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
     FILE *fp;
     fp = fopen(argv[1], "r");
@@ -324,7 +333,11 @@ void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
     fclose(fp);
 }
 
-//TODO
+/*------------------------------------------------------------------
+Funcao executada pelas tarefas escravas. Assim que estas estejam 
+livres, deverao remover os comandos do vetor -inputCommands- 
+e executa-los
+------------------------------------------------------------------*/
 void *consumidor() {
     while (1) {
         LOCK_COMMAND();
@@ -344,7 +357,7 @@ void *consumidor() {
 
 /*------------------------------------------------------------------
 Esta funcao e' responsavel por criar o numero de threads em 
-numMaxThreads e de seguida devera destrui-las
+numMaxThreads
 --------------------------------------------------------------------*/
 void createThreads(pthread_t threadIds[], int numMaxThreads) {
     for(int i = 0; i < numMaxThreads; i++) {
@@ -354,6 +367,7 @@ void createThreads(pthread_t threadIds[], int numMaxThreads) {
     }
 }
 
+/*Funcao responsavel por inicializar os locks e semaforos*/
 void initLocks() {
     /*if(pthread_rwlock_init(&rwLock, NULL)) {
         perror("Unable to initialize rwLock");
@@ -376,6 +390,7 @@ void initLocks() {
     }
 }
 
+/*Funcao responsavel por destroir os locks e semaforos*/
 void destroyLocks() {
     /*if(pthread_rwlock_destroy(&rwLock)) {
         perror("Unable to destroy rwLock in main(int agrc, char* argv[])");
