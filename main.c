@@ -70,10 +70,8 @@ int consCommands = 0;
 int headQueue = 0;
 
 /*Variáveis globais*/
-//pthread_rwlock_t rwLock;
 pthread_mutex_t mutexCommand;
 pthread_mutex_t mutexProd;
-/*pthread_mutex_t mutexAccess;*/
 tecnicofs *fs;
 int numMaxThreads;
 int numBuckets;
@@ -94,6 +92,7 @@ static void parseArgs (long argc, char* const argv[]){
     }
 }
 
+/*Faz nada. Absolutamente nada*/
 void doNothing(int bucket) {
     (void)bucket;
 }
@@ -123,43 +122,39 @@ void errorParse(){
 /*------------------------------------------------------------------
 Converte o input fornecido por line para o vetor -inputCommands-
 Devolve 0 se nao tiver sido inserido nenhum comando,
-devolve 1 caso contrario
+devolve 1 caso contrario. Esta funcao e' chamada pelo produtor
 ------------------------------------------------------------------*/
 int processInput(char *line){
-    //while (fgets(line, sizeof(line)/sizeof(char), fp)) {
-        char token;
-        char name[MAX_INPUT_SIZE];
+    char token;
+    char name[MAX_INPUT_SIZE];
+    int numTokens = sscanf(line, "%c %s", &token, name);
 
-        int numTokens = sscanf(line, "%c %s", &token, name);
-
-        /* perform minimal validation */
-        if (numTokens < 1) {
-            return 0;
-        }
-        switch (token) {
-            case 'c':
-            case 'l':
-            case 'd':
-            case 'r':
-                if(numTokens != 2)
-                    errorParse();
-                LOCK_PROD();
-                insertCommand(line)
-                UNLOCK_PROD();
-                    break;
-            case 'q':
-                LOCK_PROD();
-                strcpy(inputCommands[prodCommands], line);
-                UNLOCK_PROD();
-                break;
-            case '#':
-                return 0;
-            default: { /* error */
+    if (numTokens < 1) {
+        return 0;
+    }
+    switch (token) {
+        case 'c':
+        case 'l':
+        case 'd':
+        case 'r':
+            if(numTokens != 2)
                 errorParse();
-            }
+            LOCK_PROD();
+            insertCommand(line);
+            UNLOCK_PROD();
+                break;
+        case 'q':
+            LOCK_PROD();
+            strcpy(inputCommands[prodCommands], line);
+            UNLOCK_PROD();
+            break;
+        case '#':
+            return 0;
+        default: { /* error */
+            errorParse();
         }
-        return 1;
-    //}
+    }
+    return 1;
 }
 
 /*------------------------------------------------------------------
@@ -182,8 +177,8 @@ void multipleLock(int currentBucket, int newBucket) {
 }
 
 /*------------------------------------------------------------------
-Funcao responsavel por ler um comando do vetor -InputCommands-
-e de o executar. Esta funcao e' chamada pelo consumidor
+Funcao responsavel por ler um comando do vetor -inputCommands-
+e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
 void applyCommands(){
     int searchResult;
@@ -194,89 +189,85 @@ void applyCommands(){
     char currentName[100];
     char newName[100];
 
-    //while(!endOfFile){
+    LOCK_COMMAND();
 
-        LOCK_COMMAND();
+    const char* command = removeCommand();
+    if(command == NULL){
+        UNLOCK_COMMAND();
+        return;
+    }
 
-        const char* command = removeCommand();
-        if(command == NULL){
-            UNLOCK_COMMAND();
-            return;
-        }
+    int numTokens = sscanf(command, "%c %s", &token, name);
 
-        int numTokens = sscanf(command, "%c %s", &token, name);
+    bucket = hash(name, numBuckets);
 
-        bucket = hash(name, numBuckets);
+    if(token == 'c') {
+        iNumber = obtainNewInumber(fs);
+    }   
 
-        if(token == 'c') {
-            iNumber = obtainNewInumber(fs);
-        }   
+    if(numTokens != 2) {
+        fprintf(stderr, "Error: invalid command in Queue\n");
+        exit(EXIT_FAILURE);
+    }
 
-        if(numTokens != 2) {
-            fprintf(stderr, "Error: invalid command in Queue\n");
+    UNLOCK_COMMAND();
+
+    switch (token) {
+        case 'c':
+            LOCK_WRITE_ACCESS(bucket);
+            
+            create(fs, name, iNumber);
+
+            UNLOCK_ACCESS(bucket);
+            break;
+        case 'l':
+            LOCK_READ_ACCESS(bucket);
+
+            searchResult = lookup(fs, name);
+            if(!searchResult)
+                printf("%s not found\n", name);
+            else
+                printf("%s found with inumber %d\n", name, searchResult);
+            
+            UNLOCK_ACCESS(bucket);
+            break;
+        case 'd':
+            LOCK_WRITE_ACCESS(bucket);
+
+            delete(fs, name);
+            
+            UNLOCK_ACCESS(bucket);       
+            break;
+        case 'q':
+            if (*name == '!')
+                break;
+            printf("Error: endOfFile not reached\n");
+            break;
+        case 'r':
+            sscanf((command+2), "%s %s", currentName, newName);
+
+            int currentBucket = hash(currentName, numBuckets);
+            int newBucket = hash(newName, numBuckets);
+
+            multipleLock(currentBucket, newBucket);
+
+            searchResult = lookup(fs, currentName);
+
+            if (searchResult && !lookup(fs, newName)) {
+                delete(fs, currentName);
+                create(fs, newName, searchResult);
+            }
+
+            UNLOCK_ACCESS(currentBucket);
+            if (currentBucket != newBucket) {
+                UNLOCK_ACCESS(newBucket);
+            }
+            break;
+        default: { /* error */
+            fprintf(stderr, "Error: command to apply\n");
             exit(EXIT_FAILURE);
         }
-
-        UNLOCK_COMMAND();
-
-        switch (token) {
-            case 'c':
-                LOCK_WRITE_ACCESS(bucket);
-                
-                create(fs, name, iNumber);
-
-                UNLOCK_ACCESS(bucket);
-                break;
-            case 'l':
-                LOCK_READ_ACCESS(bucket);
-
-                searchResult = lookup(fs, name);
-                if(!searchResult)
-                    printf("%s not found\n", name);
-                else
-                    printf("%s found with inumber %d\n", name, searchResult);
-                
-                UNLOCK_ACCESS(bucket);
-                break;
-            case 'd':
-                LOCK_WRITE_ACCESS(bucket);
-
-                delete(fs, name);
-                
-                UNLOCK_ACCESS(bucket);       
-                break;
-            case 'q':
-                if (*name == '!')
-                    break;
-                printf("Error: endOfFile not reached\n");
-                break;
-            case 'r':
-                sscanf((command+2), "%s %s", currentName, newName);
-
-                int currentBucket = hash(currentName, numBuckets);
-                int newBucket = hash(newName, numBuckets);
-
-                multipleLock(currentBucket, newBucket);
-
-                searchResult = lookup(fs, currentName);
-
-                if (searchResult && !lookup(fs, newName)) {
-                    delete(fs, currentName);
-                    create(fs, newName, searchResult);
-                }
-
-                UNLOCK_ACCESS(currentBucket);
-                if (currentBucket != newBucket) {
-                    UNLOCK_ACCESS(newBucket);
-                }
-                break;
-            default: { /* error */
-                fprintf(stderr, "Error: command to apply\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    //}
-    //return NULL;
+    }
 }
 
 /* -----------------------------------------------------------------
@@ -287,15 +278,18 @@ double getTime() {
     struct timeval tv;
     double secs;
     double msecs;
-    gettimeofday(&tv, NULL);
+    if(gettimeofday(&tv, NULL)) {
+        perror("Unable to get time of day");
+        exit(EXIT_FAILURE);
+    }
     secs = (double) tv.tv_sec;
     msecs = (double) tv.tv_usec;
     return secs + msecs/1000000;
 }
 
 /*------------------------------------------------------------------
-Funcao responsavel por destroir as tarefas inicializadas 
-no vetor -threadsId-
+Funcao responsavel por destruir as tarefas inicializadas 
+no vetor -threadIds-
 ------------------------------------------------------------------*/
 void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
     for (int i = 0; i < numMaxThreads; i++) {
@@ -352,8 +346,8 @@ void *consumidor() {
 }
 
 /*------------------------------------------------------------------
-Esta funcao e' responsavel por criar o numero de threads em 
-numMaxThreads
+Esta funcao e' responsavel por criar o numero de threads indicadas 
+por numMaxThreads
 --------------------------------------------------------------------*/
 void createThreads(pthread_t threadIds[], int numMaxThreads) {
     for(int i = 0; i < numMaxThreads; i++) {
@@ -365,19 +359,13 @@ void createThreads(pthread_t threadIds[], int numMaxThreads) {
 
 /*Funcao responsavel por inicializar os locks e semaforos*/
 void initLocks() {
-    /*if(pthread_rwlock_init(&rwLock, NULL)) {
-        perror("Unable to initialize rwLock");
-    }*/
     if(pthread_mutex_init(&mutexCommand, NULL)) {
         perror("Unable to initialize mutexCommand");
     }
-    /*if(pthread_mutex_init(&mutexAccess, NULL)) {
-        perror("Unable to initialize mutexAccess");
-    }*/
-
     if(pthread_mutex_init(&mutexProd, NULL)) {
         perror("Unable to initialize mutexProd");
     }
+
     if (sem_init(&pode_prod, 0, MAX_COMMANDS)) {
         perror("Unable to iniatialize pode_prod");
     }
@@ -386,21 +374,15 @@ void initLocks() {
     }
 }
 
-/*Funcao responsavel por destroir os locks e semaforos*/
+/*Funcao responsavel por destruir os locks e semaforos*/
 void destroyLocks() {
-    /*if(pthread_rwlock_destroy(&rwLock)) {
-        perror("Unable to destroy rwLock in main(int agrc, char* argv[])");
-    }*/
     if(pthread_mutex_destroy(&mutexCommand)) {
         perror("Unable to destroy mutexCommand in main(int agrc, char* argv[])");
     }
-    /*if(pthread_mutex_destroy(&mutexAccess)) {
-        perror("Unable to destroy mutexAccess in main(int agrc, char* argv[])");
-    }*/
-
     if(pthread_mutex_destroy(&mutexProd)) {
         perror("Unable to destroy mutexProd in main(int agrc, char* argv[])");
     }
+
     if (sem_destroy(&pode_prod)) {
         perror("Unable to destroy pode_prod");
     }
@@ -410,8 +392,7 @@ void destroyLocks() {
 }
 
 /*------------------------------------------------------------------
-Funcao main responsavel pela criacao de um tecnicofs e por chamar 
-as funcoes processInput e createThreads
+Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
     parseArgs(argc, argv);
@@ -450,12 +431,12 @@ int main(int argc, char* argv[]) {
     produtor(argv, threadIds, numMaxThreads);
 
     double time_f = getTime();
+
     printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
 
     print_tecnicofs_tree(fp, fs);
     
     free_tecnicofs(fs);
-    
 
     if(fclose(fp)) {
         perror("Unable to close file");

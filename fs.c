@@ -50,6 +50,7 @@ void free_tecnicofs(tecnicofs* fs){
 
 	free(fs->mutexs);
 	free(fs->rwlocks);
+	free(fs->bstRoots);
 	free(fs);
 }
 
