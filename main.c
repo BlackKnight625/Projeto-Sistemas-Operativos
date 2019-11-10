@@ -53,10 +53,10 @@ void doNothing(int bucket);
 #define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock UNLOCK_PROD")
 #endif 
 
-#define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to sem_wait in produtor()")
-#define WAIT_PODE_CONS() if(sem_wait(&pode_cons)) perror("Unable to sem_wait in consumidor()")
-#define POST_PODE_PROD() if(sem_post(&pode_prod)) perror("Unable to sem_post in consumidor()")
-#define POST_PODE_CONS() if(sem_post(&pode_cons)) perror("Unable to sem_post in produtor()")
+#define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to WAIT_PODE_PROD")
+#define WAIT_PODE_CONS() if(sem_wait(&pode_cons)) perror("Unable to WAIT_PODE_CONS")
+#define POST_PODE_PROD() if(sem_post(&pode_prod)) perror("Unable to POST_PODE_PROD")
+#define POST_PODE_CONS() if(sem_post(&pode_cons)) perror("Unable to POST_PODE_CONS")
 
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
@@ -318,7 +318,10 @@ ficheiro e inserir no vetor -inputCommands-
 ------------------------------------------------------------------*/
 void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
     FILE *fp;
-    fp = fopen(argv[1], "r");
+    if(!(fp = fopen(argv[1], "r"))) {
+        perror("Unable to open file for reading");
+        exit(EXIT_FAILURE);
+    }
     char line[MAX_INPUT_SIZE];
     int status;
     while (fgets(line, sizeof(line)/sizeof(char), fp)) {
@@ -434,7 +437,7 @@ int main(int argc, char* argv[]) {
     }
 
     if(!(fp = fopen(argv[2], "w"))) {
-        perror("Unable to open file");
+        perror("Unable to open file for writing");
         exit(EXIT_FAILURE);
     }
 
