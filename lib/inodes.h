@@ -1,7 +1,8 @@
 #ifndef INODES_H
 #define INODES_H
 
-#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "../tecnicofs-api-constants.h"
 
 #define FREE_INODE -1

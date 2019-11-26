@@ -5,6 +5,9 @@
 #include <assert.h>
 
 
+
+
+
 int main(int argc, char** argv) {
      if (argc != 2) {
         printf("Usage: %s sock_path\n", argv[0]);
