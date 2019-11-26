@@ -422,6 +422,7 @@ int main(int argc, char* argv[]) {
     }
 
     initLocks();
+    inode_table_init();
 
     fs = new_tecnicofs(numBuckets);
     
@@ -449,6 +450,7 @@ int main(int argc, char* argv[]) {
     }
 
     destroyLocks();
+    inode_table_destroy();
     
     exit(EXIT_SUCCESS);
 }

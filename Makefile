@@ -12,12 +12,12 @@ LDFLAGS=-lm
 
 all: tecnicofs
 
-tecnicofs: lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-nosync lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex lib/bst.o lib/hash.o fs.o main-mutex.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/bst.o lib/hash.o fs.o main-rwlock.o
+tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-nosync.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-nosync lib/inodes.o lib/bst.o lib/hash.o fs.o main-nosync.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex lib/inodes.o lib/bst.o lib/hash.o fs.o main-mutex.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o
 
-lib/bst.o: lib/bst.c lib/bst.h
+lib/bst.o: lib/bst.c lib/bst.h lib/inodes.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
 
 lib/hash.o: lib/hash.c lib/hash.h
@@ -25,6 +25,9 @@ lib/hash.o: lib/hash.c lib/hash.h
 
 fs.o: fs.c fs.h lib/bst.h lib/hash.h
 	$(CC) $(CFLAGS) -o fs.o -c fs.c
+
+lib/inodes.o: lib/inodes.c lib/inodes.h
+	$(CC) $(CFLAGS) -o lib/inodes.o -c lib/inodes.c
 
 # Nao ha neccessidade de separar os casos separados dos diferentes mains
 main-nosync.o: main.c fs.h lib/bst.h lib/hash.h
