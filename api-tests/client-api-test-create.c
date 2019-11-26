@@ -11,7 +11,8 @@ int main(int argc, char** argv) {
         exit(0);
     }
     assert(tfsMount(argv[1]) == 0);
-    printf("Test: create file sucess");
+    printf("Test: create file sucess\n");
+    fflush(stdout);
     assert(tfsCreate("a", RW, READ) == 0);
     printf("Test: create file with name that already exists");
     assert(tfsCreate("a", RW, READ) == TECNICOFS_ERROR_FILE_ALREADY_EXISTS);

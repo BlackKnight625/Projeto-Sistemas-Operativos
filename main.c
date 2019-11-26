@@ -6,6 +6,10 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <semaphore.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 #include "fs.h"
 #include "lib/hash.h"
 
@@ -61,6 +65,7 @@ void doNothing(int bucket);
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
+
 
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
@@ -191,7 +196,7 @@ void applyCommands(){
 
     LOCK_COMMAND();
 
-    const char* command = removeCommand();
+    const char* command = removeCommand(); //Não pode devolver um ponteiro, pois o produtor pode entretanto escrever nele
     if(command == NULL){
         UNLOCK_COMMAND();
         return;
@@ -331,11 +336,11 @@ e executa-los
 void *consumidor() {
     while (1) {
         LOCK_COMMAND();
-        if (strcmp(inputCommands[headQueue], "q!")) {
+        if (strcmp(inputCommands[headQueue], "q!")) { //Mudar isto. Verificação constante desnecessária
             UNLOCK_COMMAND();
             WAIT_PODE_CONS();
             applyCommands();
-            POST_PODE_PROD();
+            POST_PODE_PROD(); //Assim que se copia o comando, é preciso dizer ao produtor para produzir
         }
         else {
             UNLOCK_COMMAND();
@@ -401,6 +406,7 @@ int main(int argc, char* argv[]) {
     numBuckets = atoi(argv[4]);
     pthread_t threadIds[numMaxThreads];
 
+    
     if(numMaxThreads <= 0) {
         perror("Number of threads must be a number greater than 0");
         exit(EXIT_FAILURE);
@@ -443,6 +449,6 @@ int main(int argc, char* argv[]) {
     }
 
     destroyLocks();
-
+    
     exit(EXIT_SUCCESS);
 }
