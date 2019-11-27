@@ -12,10 +12,8 @@ LDFLAGS=-lm
 
 all: tecnicofs
 
-tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-nosync lib/inodes.o lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex lib/inodes.o lib/bst.o lib/hash.o fs.o main-mutex.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o
+tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o sockets/sockets.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o sockets/sockets.o main-rwlock.o
 
 lib/bst.o: lib/bst.c lib/bst.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
@@ -29,10 +27,11 @@ fs.o: fs.c fs.h lib/bst.h lib/hash.h lib/inodes.h
 lib/inodes.o: lib/inodes.c lib/inodes.h
 	$(CC) $(CFLAGS) -o lib/inodes.o -c lib/inodes.c
 
+sockets/sockets.o: sockets/sockets.c sockets/sockets.h
+	$(CC) $(CFLAGS) -o sockets/sockets.o -c sockets/sockets.c
+
 # Nao ha neccessidade de separar os casos separados dos diferentes mains
-main-nosync.o: main.c fs.h lib/bst.h lib/hash.h
-	$(CC) $(CFLAGS) -o main-nosync.o -c main.c
-	$(CC) $(CFLAGS) -DMUTEX -o main-mutex.o -c main.c
+main-rwlock.o: main.c fs.h lib/bst.h lib/hash.h
 	$(CC) $(CFLAGS) -DRWLOCK -o main-rwlock.o -c main.c
 
 clean:

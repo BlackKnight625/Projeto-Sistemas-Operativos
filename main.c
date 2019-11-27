@@ -85,18 +85,18 @@ sem_t pode_prod;
 sem_t pode_cons;
 
 /*Mostra como se chama corretamente o programa*/
-static void displayUsage (const char* appName){
+/*static void displayUsage (const char* appName){
     printf("Usage: %s inputfile outputfile numThreads numBuckets\n", appName);
     exit(EXIT_FAILURE);
-}
+}*/
 
 /*Verifica que a funcao recebeu todos os argumentos*/
-static void parseArgs (long argc, char* const argv[]){
+/*static void parseArgs (long argc, char* const argv[]){
     if (argc != 5) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
-}
+}*/
 
 /*Faz nada. Absolutamente nada*/
 void doNothing(int bucket) {
@@ -392,7 +392,7 @@ void *threadFunc(void *cfd) {
     uid_t owner;
     struct ucred info;
 
-    getsockopt(sock, NULL, NULL, &info, NULL);
+    getsockopt(sock, 0, 0, &info, NULL);
 
     owner = info.uid;
 
@@ -400,7 +400,7 @@ void *threadFunc(void *cfd) {
         read(sock, buffer, 100);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
         int success = applyCommands(command, filename, perm, owner);
-        write(sock, success, sizeof(int));
+        write(sock, &success, sizeof(int));
         close(sock);
     }
     return NULL;
@@ -414,7 +414,7 @@ int main(int argc, char* argv[]) {
     FILE *fp;
     numMaxThreads = atoi(argv[3]);*/
     numBuckets = atoi(argv[4]);
-    pthread_t threadIds[numMaxThreads];
+    /*pthread_t threadIds[numMaxThreads];*/
 
     
     /*if(numMaxThreads <= 0) {
@@ -459,8 +459,6 @@ int main(int argc, char* argv[]) {
     }*/
 
     destroyLocks();
-
-    char buffer[100];
 
     int sfd;
     newServer(&sfd, argv[1]);

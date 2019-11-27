@@ -32,7 +32,7 @@ int newServer(int *sfd, char *address) {
 int getNewSocket(int *cfd, int sfd) {
     struct sockaddr_un cli_addr;
     int clilen = sizeof(cli_addr); 
-    *cfd = accept(sfd, (struct sockaddr *) &cli_addr, &clilen);
+    *cfd = accept(sfd, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
 
     if (*cfd < 0)
         return -1;
