@@ -164,7 +164,7 @@ int inode_open(int inumber, char* mode) {
         unlock_inode_table();
         return -1;
     }
-    strcpy(inode_table[inumber].mode, mode);
+    if(mode) strcpy(inode_table[inumber].mode, mode);
     inode_table[inumber].isOpen = 1;
     unlock_inode_table();
     return 0;

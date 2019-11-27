@@ -25,6 +25,8 @@ int inode_delete(int inumber);
 int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *othersPerm,
                      char* fileContents, int len, char* mode, int* isOpen);
 int inode_set(int inumber, char *contents, int len);
+int inode_open(int inumber, char* mode);
+int inode_close(int inumber);
 
 
 #endif /* INODES_H */
