@@ -439,9 +439,14 @@ void *threadFunc(void *cfd) {
         read(sock, buffer, 100);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
         int success = applyCommands(command, filename, perm, owner, sock, content);
+        if (success == 1)
+            break;
         write(sock, &success, sizeof(int));
-        close(sock);
+        if (*content != '\0') {
+            write(sock, content, strlen(content));
+        }
     }
+    close(sock);
     return NULL;
 }
 
