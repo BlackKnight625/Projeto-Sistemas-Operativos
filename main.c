@@ -185,82 +185,69 @@ void multipleLock(int currentBucket, int newBucket) {
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-void applyCommands(){
+void applyCommands(char command, char arg1[], char arg2[]){
     int searchResult;
     int iNumber;
     int bucket;
-    char token;
-    char name[MAX_INPUT_SIZE];
-    char currentName[100];
-    char newName[100];
 
-    LOCK_COMMAND();
-
-    const char* command = removeCommand(); //Não pode devolver um ponteiro, pois o produtor pode entretanto escrever nele
     if(command == NULL){
         UNLOCK_COMMAND();
         return;
     }
 
-    int numTokens = sscanf(command, "%c %s", &token, name);
+    //bucket = hash(name, numBuckets);
 
-    bucket = hash(name, numBuckets);
-
-    if(token == 'c') {
+    if(command == 'c') {
         iNumber = obtainNewInumber(fs);
     }   
 
-    if(numTokens != 2) {
-        fprintf(stderr, "Error: invalid command in Queue\n");
-        exit(EXIT_FAILURE);
+    switch (command) { /*Generates the hash for the commands that need it*/
+        case 'c':
+        case 'l':
+        case 'd':
+        case 'r':
+            bucket = hash(arg1, numBuckets);
+            break;
     }
 
-    UNLOCK_COMMAND();
-
-    switch (token) {
+    switch (command) {
         case 'c':
             LOCK_WRITE_ACCESS(bucket);
             
-            create(fs, name, iNumber);
+            create(fs, arg1, iNumber);
 
             UNLOCK_ACCESS(bucket);
             break;
         case 'l':
             LOCK_READ_ACCESS(bucket);
 
-            searchResult = lookup(fs, name);
+            searchResult = lookup(fs, arg1);
             if(!searchResult)
-                printf("%s not found\n", name);
+                printf("%s not found\n", arg1);
             else
-                printf("%s found with inumber %d\n", name, searchResult);
+                printf("%s found with inumber %d\n", arg1, searchResult);
             
             UNLOCK_ACCESS(bucket);
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
 
-            delete(fs, name);
+            delete(fs, arg1);
             
             UNLOCK_ACCESS(bucket);       
             break;
-        case 'q':
-            if (*name == '!')
-                break;
-            printf("Error: endOfFile not reached\n");
-            break;
         case 'r':
-            sscanf((command+2), "%s %s", currentName, newName);
 
-            int currentBucket = hash(currentName, numBuckets);
-            int newBucket = hash(newName, numBuckets);
+            int currentBucket = bucket;
+            int newBucket = hash(arg2, numBuckets);
 
             multipleLock(currentBucket, newBucket);
 
-            searchResult = lookup(fs, currentName);
+            searchResult = lookup(fs, arg1);
 
-            if (searchResult && !lookup(fs, newName)) {
-                delete(fs, currentName);
-                create(fs, newName, searchResult);
+            if (searchResult && !lookup(fs, arg2)) {
+                delete(fs, arg1);
+                create(fs, arg2, searchResult);
             }
 
             UNLOCK_ACCESS(currentBucket);
@@ -333,7 +320,7 @@ Funcao executada pelas tarefas escravas. Assim que estas estejam
 livres, deverao remover os comandos do vetor -inputCommands- 
 e executa-los
 ------------------------------------------------------------------*/
-void *consumidor() {
+/*void *consumidor() {
     while (1) {
         LOCK_COMMAND();
         if (strcmp(inputCommands[headQueue], "q!")) { //Mudar isto. Verificação constante desnecessária
@@ -348,19 +335,19 @@ void *consumidor() {
             return NULL;
         }
     }
-}
+}*/
 
 /*------------------------------------------------------------------
 Esta funcao e' responsavel por criar o numero de threads indicadas 
 por numMaxThreads
 --------------------------------------------------------------------*/
-void createThreads(pthread_t threadIds[], int numMaxThreads) {
+/*void createThreads(pthread_t threadIds[], int numMaxThreads) {
     for(int i = 0; i < numMaxThreads; i++) {
         if(pthread_create(&(threadIds[i]), NULL, consumidor, NULL)) {
             perror("Unable to create thread in createThreads(int numMaxThreads)");
         }
     }
-}
+}*/
 
 /*Funcao responsavel por inicializar os locks e semaforos*/
 void initLocks() {
@@ -394,6 +381,16 @@ void destroyLocks() {
     if (sem_destroy(&pode_cons)) {
         perror("Unable to destroy pode_cons");
     }
+}
+
+void readSocket(int sock) {
+    char command;
+    char arg1[] = NULL;
+    char arg2[] = NULL;
+
+    /*Lê o socket e preenche as variáveis*/
+
+    
 }
 
 /*------------------------------------------------------------------
