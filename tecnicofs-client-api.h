@@ -3,6 +3,7 @@
 
 #include "tecnicofs-api-constants.h"
 
+#define MAX_INPUT_SIZE 100
 
 int tfsCreate(char *filename, permission ownerPermissions, permission othersPermissions);
 int tfsDelete(char *filename);
