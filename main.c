@@ -220,7 +220,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int result = 0; //Value returned by this function
     int fd;
     uid_t owner;
-    char* mode;
+    char* mode = NULL;
     permission ownerPerm;
     permission othersPerm;
     int len;
@@ -261,8 +261,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             iNumber = fileTable->iNumbers[fd];
-            
-            if((len = inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen)) == -1) {
+
+            if(iNumber == -1) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            } 
+            else if((len = inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen)) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -287,7 +290,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -297,12 +300,13 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_IS_OPEN;
             }
 
-            inode_open(searchResult, arg2[0]);
-
             if(fileTable->nOpenedFiles == MAX_OPEN_FILES) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_MAXED_OPEN_FILES;
             }
+
+            inode_open(searchResult, arg2[0]);
+
             for(int i = 0; i < MAX_OPEN_FILES; i++) {
                 if(fileTable->iNumbers[i] == -1) {
                     fileTable->iNumbers[i] = searchResult;
@@ -320,7 +324,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             iNumber = fileTable->iNumbers[fd];
 
-            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+            if(inode_get(iNumber, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
             else if(!isOpen) {
@@ -328,12 +332,15 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             inode_close(iNumber);
+            fileTable->iNumbers[fd] = -1;
 
             break;
         case 'w':
             if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 return TECNICOFS_ERROR_OTHER;
             }
+
+            
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
