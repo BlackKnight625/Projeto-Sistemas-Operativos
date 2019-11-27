@@ -6,13 +6,14 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <semaphore.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include "fs.h"
 #include "lib/hash.h"
+<<<<<<< HEAD
 #include "tecnicofs-api-constants.h"
+=======
+#include "sockets/sockets.h"
+>>>>>>> 8af54aa5b26810b59ead5c5d344dca8cc3dc2a3b
 
 void doNothing(int bucket);
 
@@ -381,47 +382,46 @@ void destroyLocks() {
     }
 }
 
-void readSocket(int sock) {
-    char command;
-    char arg1[100];
-    char arg2[100];
-
-    /*Lê o socket e preenche as variáveis*/
-    applyCommands(command, arg1, arg2);
-
-    
+void *threadFunc(void *cfd) {
+    char buffer[100];
+    int sock = *((int *) cfd);
+    read(sock, buffer, 100);
+    applyCommands();
+    write(sock, buffer, strlen(buffer));
+    close(sock);
+    return NULL;
 }
 
 /*------------------------------------------------------------------
 Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
-    parseArgs(argc, argv);
+    /*parseArgs(argc, argv);
     FILE *fp;
-    numMaxThreads = atoi(argv[3]);
+    numMaxThreads = atoi(argv[3]);*/
     numBuckets = atoi(argv[4]);
     pthread_t threadIds[numMaxThreads];
 
     
-    if(numMaxThreads <= 0) {
+    /*if(numMaxThreads <= 0) {
         perror("Number of threads must be a number greater than 0");
         exit(EXIT_FAILURE);
-    }
+    }*/
     if(numBuckets <= 0) {
         perror("Number of buckets must be a number greater than 0");
         exit(EXIT_FAILURE);
     }
 
-    if(!(fp = fopen(argv[2], "w"))) {
+    /*if(!(fp = fopen(argv[2], "w"))) {
         perror("Unable to open file for writing");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     initLocks();
 
     fs = new_tecnicofs(numBuckets);
     
-    double time_ini = getTime();
+    /*double time_ini = getTime();
 
     if(MULTITHREADING) {
         createThreads(threadIds, numMaxThreads);  
@@ -436,15 +436,31 @@ int main(int argc, char* argv[]) {
 
     printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
 
-    print_tecnicofs_tree(fp, fs);
+    print_tecnicofs_tree(fp, fs);*/
     
     free_tecnicofs(fs);
 
-    if(fclose(fp)) {
+    /*if(fclose(fp)) {
         perror("Unable to close file");
-    }
+    }*/
 
     destroyLocks();
+
+    char buffer[100];
+
+    int sfd;
+    newServer(&sfd, argv[1]);
+
+    while (1) {
+        int new_sock;
+        pthread_t tid;
+        getNewSocket(&new_sock, sfd);
+        pthread_create(&tid, 0, threadFunc, (void *) &new_sock);
+    }
+
+    close(sfd);
+
+    /*destroyLocks();*/
     
     exit(EXIT_SUCCESS);
 }
