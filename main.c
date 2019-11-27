@@ -183,7 +183,7 @@ void multipleLock(int currentBucket, int newBucket) {
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-void applyCommands(char command, char arg1[], char arg2[]){
+void applyCommands(char command, char arg1[], char arg2[], uid_t owner){
     int searchResult;
     int iNumber;
     int bucket;
