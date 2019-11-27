@@ -66,6 +66,7 @@ void doNothing(int bucket);
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
+#define MAX_CONTENT_SIZE 100
 
 
 /*Vetor de Strings que guarda os comandos*/
@@ -85,22 +86,38 @@ sem_t pode_prod;
 sem_t pode_cons;
 
 /*Mostra como se chama corretamente o programa*/
-/*static void displayUsage (const char* appName){
-    printf("Usage: %s inputfile outputfile numThreads numBuckets\n", appName);
+static void displayUsage (const char* appName){
+    printf("Usage: %s nomesocket outputfile numBuckets\n", appName);
     exit(EXIT_FAILURE);
-}*/
+}
 
 /*Verifica que a funcao recebeu todos os argumentos*/
-/*static void parseArgs (long argc, char* const argv[]){
-    if (argc != 5) {
+static void parseArgs (long argc, char* const argv[]){
+    if (argc != 4) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
-}*/
+}
 
 /*Faz nada. Absolutamente nada*/
 void doNothing(int bucket) {
     (void)bucket;
+}
+
+int hasPermissionToWrite(uid_t owner, uid_t person, int ownerPerm, int othersPerm) {
+    if(othersPerm == WRITE || othersPerm == RW) return 1;
+    else if(owner == person) {
+        if(ownerPerm == WRITE || ownerPerm == RW) return 1;
+    }
+    return 0;
+}
+
+int hasPermissionToRead(uid_t owner, uid_t person, int ownerPerm, int othersPerm) {
+    if(othersPerm == READ || othersPerm == RW) return 1;
+    else if(owner == person) {
+        if(ownerPerm == READ || ownerPerm == RW) return 1;
+    }
+    return 0;
 }
 
 /*Insere o comando fornecido por -data- no vetor -inputCommands-*/
@@ -186,16 +203,17 @@ void multipleLock(int currentBucket, int newBucket) {
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-int applyCommands(char command, char arg1[], char arg2[], uid_t owner){
+int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, int sock, char* content){
     int searchResult;
     int iNumber;
     int bucket;
     int currentBucket;
     int newBucket;
+    int result = 0; //Value returned by this function
 
-    if(command == 'c') {
+    /*if(command == 'c') {
         iNumber = obtainNewInumber(fs);
-    }   
+    }*/ 
 
     switch (command) { /*Generates the hash for the commands that need it*/
         case 'c':
@@ -208,27 +226,41 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t owner){
 
     switch (command) {
         case 'c':
+            iNumber = inode_create(commandSender, arg2[0], arg2[1]);
+
             LOCK_WRITE_ACCESS(bucket);
-
-
             
             create(fs, arg1, iNumber);
 
             UNLOCK_ACCESS(bucket);
+            result = 0;
             break;
         case 'l':
             LOCK_READ_ACCESS(bucket);
+            uid_t owner;
+            char readContent[MAX_CONTENT_SIZE];
+            int ownerPerm;
+            int othersPerm;
+            int len;
 
             searchResult = lookup(fs, arg1);
-            if(!searchResult)
-                printf("%s not found\n", arg1);
-            else
-                printf("%s found with inumber %d\n", arg1, searchResult);
+            
+            len = inode_get(fs->iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE);
+
+            if(hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
+                strncpy(content, readContent, len);
+            }
+            else {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
+            }
+            
             
             UNLOCK_ACCESS(bucket);
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
+
+
 
             delete(fs, arg1);
             
@@ -258,7 +290,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t owner){
             exit(EXIT_FAILURE);
         }
     }
-    return 0;
+    return result;
 }
 
 /* -----------------------------------------------------------------
@@ -387,6 +419,7 @@ void *threadFunc(void *cfd) {
     char command;
     char filename[100];
     char perm[2];
+    char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
     
     uid_t owner;
@@ -400,7 +433,7 @@ void *threadFunc(void *cfd) {
         memset(buffer, 0, 100);
         read(sock, buffer, 100);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
-        int success = applyCommands(command, filename, perm, owner);
+        int success = applyCommands(command, filename, perm, owner, sock, content);
         write(sock, &success, sizeof(int));
         close(sock);
     }
@@ -411,10 +444,10 @@ void *threadFunc(void *cfd) {
 Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
-    /*parseArgs(argc, argv);
-    FILE *fp;
-    numMaxThreads = atoi(argv[3]);*/
-    numBuckets = atoi(argv[4]);
+    parseArgs(argc, argv);
+    /*FILE *fp;*/
+    numMaxThreads = 16;
+    numBuckets = atoi(argv[3]);
     /*pthread_t threadIds[numMaxThreads];*/
 
     
