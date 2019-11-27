@@ -33,10 +33,8 @@ int tfsDelete(char *filename) {
 }
 
 int tfsRename(char *filenameOld, char *filenameNew) {
-    char buffer[100] = "r ";
-    strcat(buffer, filenameOld);
-    strcat(buffer, " ");
-    strcat(buffer, filenameNew);
+    char buffer[100] = "r";
+    sprintf(buffer, "%s %s %s", buffer, filenameOld, filenameNew);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
         return -1; //probably get a new error num

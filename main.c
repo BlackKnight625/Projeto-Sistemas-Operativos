@@ -484,14 +484,10 @@ int main(int argc, char* argv[]) {
     printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
 
     print_tecnicofs_tree(fp, fs);*/
-    
-    free_tecnicofs(fs);
 
     /*if(fclose(fp)) {
         perror("Unable to close file");
     }*/
-
-    destroyLocks();
 
     int sfd;
     newServer(&sfd, argv[1]);
@@ -502,6 +498,8 @@ int main(int argc, char* argv[]) {
         getNewSocket(&new_sock, sfd);
         pthread_create(&tid, 0, threadFunc, (void *) &new_sock);
     }
+
+    free_tecnicofs(fs);
 
     close(sfd);
 
