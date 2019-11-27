@@ -17,13 +17,13 @@ tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-nosync.o
 	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex lib/inodes.o lib/bst.o lib/hash.o fs.o main-mutex.o
 	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o
 
-lib/bst.o: lib/bst.c lib/bst.h lib/inodes.h
+lib/bst.o: lib/bst.c lib/bst.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
 
 lib/hash.o: lib/hash.c lib/hash.h
 	$(CC) $(CFLAGS) -o lib/hash.o -c lib/hash.c
 
-fs.o: fs.c fs.h lib/bst.h lib/hash.h
+fs.o: fs.c fs.h lib/bst.h lib/hash.h lib/inodes.h
 	$(CC) $(CFLAGS) -o fs.o -c fs.c
 
 lib/inodes.o: lib/inodes.c lib/inodes.h

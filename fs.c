@@ -10,6 +10,7 @@ int obtainNewInumber(tecnicofs* fs) {
 
 tecnicofs* new_tecnicofs(int numRoots){
 	tecnicofs*fs = (tecnicofs*) malloc(sizeof(tecnicofs));
+	inode_table_init();
 	if (!fs) {
 		perror("failed to allocate tecnicofs");
 		exit(EXIT_FAILURE);
@@ -47,7 +48,7 @@ void free_tecnicofs(tecnicofs* fs){
         	perror("Unable to destroy rwLock in new_tecnicofs");
     	}
 	}
-
+	inode_table_destroy();
 	free(fs->mutexs);
 	free(fs->rwlocks);
 	free(fs->bstRoots);

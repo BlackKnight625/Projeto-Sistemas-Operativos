@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include "fs.h"
 #include "lib/hash.h"
+#include "tecnicofs-api-constants.h"
 
 void doNothing(int bucket);
 
@@ -189,13 +190,8 @@ void applyCommands(char command, char arg1[], char arg2[]){
     int searchResult;
     int iNumber;
     int bucket;
-
-    if(command == NULL){
-        UNLOCK_COMMAND();
-        return;
-    }
-
-    //bucket = hash(name, numBuckets);
+    int currentBucket;
+    int newBucket;
 
     if(command == 'c') {
         iNumber = obtainNewInumber(fs);
@@ -213,6 +209,8 @@ void applyCommands(char command, char arg1[], char arg2[]){
     switch (command) {
         case 'c':
             LOCK_WRITE_ACCESS(bucket);
+
+
             
             create(fs, arg1, iNumber);
 
@@ -238,8 +236,8 @@ void applyCommands(char command, char arg1[], char arg2[]){
             break;
         case 'r':
 
-            int currentBucket = bucket;
-            int newBucket = hash(arg2, numBuckets);
+            currentBucket = bucket;
+            newBucket = hash(arg2, numBuckets);
 
             multipleLock(currentBucket, newBucket);
 
@@ -385,10 +383,11 @@ void destroyLocks() {
 
 void readSocket(int sock) {
     char command;
-    char arg1[] = NULL;
-    char arg2[] = NULL;
+    char arg1[100];
+    char arg2[100];
 
     /*Lê o socket e preenche as variáveis*/
+    applyCommands(command, arg1, arg2);
 
     
 }
@@ -419,7 +418,6 @@ int main(int argc, char* argv[]) {
     }
 
     initLocks();
-    inode_table_init();
 
     fs = new_tecnicofs(numBuckets);
     
@@ -447,7 +445,6 @@ int main(int argc, char* argv[]) {
     }
 
     destroyLocks();
-    inode_table_destroy();
     
     exit(EXIT_SUCCESS);
 }
