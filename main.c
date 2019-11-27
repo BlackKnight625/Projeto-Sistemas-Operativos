@@ -9,11 +9,7 @@
 #include <unistd.h>
 #include "fs.h"
 #include "lib/hash.h"
-<<<<<<< HEAD
-#include "tecnicofs-api-constants.h"
-=======
 #include "sockets/sockets.h"
->>>>>>> 8af54aa5b26810b59ead5c5d344dca8cc3dc2a3b
 
 void doNothing(int bucket);
 

@@ -2,7 +2,6 @@
 #ifndef BST_H
 #define BST_H
 #include <stdio.h>
-#include "inodes.h"
 
 #define DELAY 5000
 
