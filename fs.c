@@ -24,7 +24,7 @@ tecnicofs* new_tecnicofs(int numRoots){
     	}
 		fs->bstRoots[i] = NULL;
 	}
-	
+
 	fs->numRoots = numRoots;
 	return fs;
 }
@@ -64,7 +64,7 @@ int lookup(tecnicofs* fs, char *name){
 	int bucket = hash(name, fs->numRoots);
 	node* searchNode = search(fs->bstRoots[bucket], name);
 	if ( searchNode ) return searchNode->inumber;
-	return 0;
+	return -1;
 }
 
 void print_tecnicofs_tree(FILE * fp, tecnicofs *fs){

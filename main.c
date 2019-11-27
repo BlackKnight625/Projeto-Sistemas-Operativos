@@ -211,6 +211,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int newBucket;
     int result = 0; //Value returned by this function
 
+    content = "\0";
+
     /*if(command == 'c') {
         iNumber = obtainNewInumber(fs);
     }*/ 
