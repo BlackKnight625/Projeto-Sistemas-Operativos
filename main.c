@@ -397,6 +397,7 @@ void *threadFunc(void *cfd) {
     owner = info.uid;
 
     while(1) {
+        memset(buffer, 0, 100);
         read(sock, buffer, 100);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
         int success = applyCommands(command, filename, perm, owner);
