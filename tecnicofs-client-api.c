@@ -1,4 +1,5 @@
 #include "tecnicofs-api-constants.h"
+#include "tecnicofs-client-api.h"
 #include "sockets/sockets.h"
 #include <string.h>
 #include <unistd.h>
@@ -8,9 +9,8 @@
 int sock;
 
 int tfsCreate(char *filename, permission ownerPermissions, permission othersPermissions) {
-    //lookup filename return -1 if it exists
     int success;
-    char buffer[100] = "c";
+    char buffer[MAX_INPUT_SIZE] = "c";
     sprintf(buffer, "%s %s %d%d", buffer, filename, ownerPermissions, othersPermissions);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
@@ -23,7 +23,7 @@ int tfsCreate(char *filename, permission ownerPermissions, permission othersPerm
 
 int tfsDelete(char *filename) {
     int success;
-    char buffer[100] = "d ";
+    char buffer[MAX_INPUT_SIZE] = "d ";
     strcat(buffer, filename);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
@@ -36,7 +36,7 @@ int tfsDelete(char *filename) {
 
 int tfsRename(char *filenameOld, char *filenameNew) {
     int success;
-    char buffer[100] = "r";
+    char buffer[MAX_INPUT_SIZE] = "r";
     sprintf(buffer, "%s %s %s", buffer, filenameOld, filenameNew);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
@@ -49,7 +49,7 @@ int tfsRename(char *filenameOld, char *filenameNew) {
 
 int tfsOpen(char *filename, permission mode) {
     int success;
-    char buffer[100] = "o";
+    char buffer[MAX_INPUT_SIZE] = "o";
     sprintf(buffer, "%s %s %d", buffer, filename, mode);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
@@ -62,7 +62,7 @@ int tfsOpen(char *filename, permission mode) {
 
 int tfsClose(int fd) {
     int success;
-    char buffer[100] = "x";
+    char buffer[MAX_INPUT_SIZE] = "x";
     sprintf(buffer, "%s %d", buffer, fd);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
@@ -73,14 +73,14 @@ int tfsClose(int fd) {
     return success;
 }
 
+//esta funcao deve retornar um int seguido de uma string 
 int tfsRead(int fd, char *buffer, int len) {
     int success;
-    char command[100] = "l";
+    char command[MAX_INPUT_SIZE] = "l";
     sprintf(command, "%s %d %d", command, fd, len);
     if (write(sock, command, strlen(command)) == -1) {
         perror("Unable to send message");
     }
-    //esta funcao deve retornar um int seguido de uma string 
     if (read(sock, &success, sizeof(int)) == -1) { 
         perror("Unable to read");
     }
@@ -94,7 +94,7 @@ int tfsRead(int fd, char *buffer, int len) {
 
 int tfsWrite(int fd, char *buffer, int len) {
     int success;
-    char command[100] = "w";
+    char command[MAX_INPUT_SIZE] = "w";
     sprintf(command, "%s %d %d", command, fd, buffer);
     if (write(sock, command, strlen(command)) == -1) {
         perror("Unable to send message");

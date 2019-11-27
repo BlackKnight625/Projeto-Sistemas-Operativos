@@ -521,9 +521,9 @@ void destroyLocks() {
 }
 
 void *threadFunc(void *cfd) {
-    char buffer[100];
+    char buffer[MAX_INPUT_SIZE];
     char command;
-    char filename[100];
+    char filename[MAX_INPUT_SIZE];
     char perm[2];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
@@ -538,8 +538,8 @@ void *threadFunc(void *cfd) {
     owner = info.uid;
 
     while(1) {
-        memset(buffer, 0, 100);
-        read(sock, buffer, 100);
+        memset(buffer, 0, MAX_INPUT_SIZE);
+        read(sock, buffer, MAX_INPUT_SIZE);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
         int success = applyCommands(command, filename, perm, owner, sock, content, &fileTable);
         if (success == 1)
