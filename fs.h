@@ -8,7 +8,6 @@
 typedef struct tecnicofs {
     node** bstRoots;
     int numRoots;
-    int iNumber;
     pthread_mutex_t *mutexs;
     pthread_rwlock_t *rwlocks;
 } tecnicofs;

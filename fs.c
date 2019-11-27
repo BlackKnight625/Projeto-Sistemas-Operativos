@@ -24,8 +24,7 @@ tecnicofs* new_tecnicofs(int numRoots){
     	}
 		fs->bstRoots[i] = NULL;
 	}
-
-	fs->iNumber = 0;
+	
 	fs->numRoots = numRoots;
 	return fs;
 }

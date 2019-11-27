@@ -231,14 +231,13 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             LOCK_WRITE_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
-            if(searchResult != 0) {
+            if(searchResult != -1) {
                 return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
             }
             
             create(fs, arg1, iNumber);
 
             UNLOCK_ACCESS(bucket);
-            result = 0;
             break;
         case 'l':
             uid_t owner;
@@ -250,16 +249,19 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             LOCK_READ_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
-            
-            len = inode_get(fs->iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE);
 
-            if(hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
-                strncpy(content, readContent, len);
+            if(searchResult != -1) {
+                return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
-            else {
+            
+            len = inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE);
+
+
+            if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            
+
+            strncpy(content, readContent, len);  
             
             UNLOCK_ACCESS(bucket);
             break;
