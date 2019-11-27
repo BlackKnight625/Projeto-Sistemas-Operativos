@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -7,6 +9,7 @@
 #include <sys/time.h>
 #include <semaphore.h>
 #include <unistd.h>
+#include <sys/un.h>
 #include "fs.h"
 #include "lib/hash.h"
 #include "sockets/sockets.h"
@@ -64,6 +67,7 @@ void doNothing(int bucket);
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 
+
 /*Vetor de Strings que guarda os comandos*/
 char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
 int numberCommands = 0;
@@ -81,18 +85,18 @@ sem_t pode_prod;
 sem_t pode_cons;
 
 /*Mostra como se chama corretamente o programa*/
-static void displayUsage (const char* appName){
+/*static void displayUsage (const char* appName){
     printf("Usage: %s inputfile outputfile numThreads numBuckets\n", appName);
     exit(EXIT_FAILURE);
-}
+}*/
 
 /*Verifica que a funcao recebeu todos os argumentos*/
-static void parseArgs (long argc, char* const argv[]){
+/*static void parseArgs (long argc, char* const argv[]){
     if (argc != 5) {
         fprintf(stderr, "Invalid format:\n");
         displayUsage(argv[0]);
     }
-}
+}*/
 
 /*Faz nada. Absolutamente nada*/
 void doNothing(int bucket) {
@@ -182,82 +186,66 @@ void multipleLock(int currentBucket, int newBucket) {
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-void applyCommands(){
+int applyCommands(char command, char arg1[], char arg2[], uid_t owner){
     int searchResult;
     int iNumber;
     int bucket;
-    char token;
-    char name[MAX_INPUT_SIZE];
-    char currentName[100];
-    char newName[100];
+    int currentBucket;
+    int newBucket;
 
-    LOCK_COMMAND();
-
-    const char* command = removeCommand();
-    if(command == NULL){
-        UNLOCK_COMMAND();
-        return;
-    }
-
-    int numTokens = sscanf(command, "%c %s", &token, name);
-
-    bucket = hash(name, numBuckets);
-
-    if(token == 'c') {
+    if(command == 'c') {
         iNumber = obtainNewInumber(fs);
     }   
 
-    if(numTokens != 2) {
-        fprintf(stderr, "Error: invalid command in Queue\n");
-        exit(EXIT_FAILURE);
+    switch (command) { /*Generates the hash for the commands that need it*/
+        case 'c':
+        case 'l':
+        case 'd':
+        case 'r':
+            bucket = hash(arg1, numBuckets);
+            break;
     }
 
-    UNLOCK_COMMAND();
-
-    switch (token) {
+    switch (command) {
         case 'c':
             LOCK_WRITE_ACCESS(bucket);
+
+
             
-            create(fs, name, iNumber);
+            create(fs, arg1, iNumber);
 
             UNLOCK_ACCESS(bucket);
             break;
         case 'l':
             LOCK_READ_ACCESS(bucket);
 
-            searchResult = lookup(fs, name);
+            searchResult = lookup(fs, arg1);
             if(!searchResult)
-                printf("%s not found\n", name);
+                printf("%s not found\n", arg1);
             else
-                printf("%s found with inumber %d\n", name, searchResult);
+                printf("%s found with inumber %d\n", arg1, searchResult);
             
             UNLOCK_ACCESS(bucket);
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
 
-            delete(fs, name);
+            delete(fs, arg1);
             
             UNLOCK_ACCESS(bucket);       
             break;
-        case 'q':
-            if (*name == '!')
-                break;
-            printf("Error: endOfFile not reached\n");
-            break;
         case 'r':
-            sscanf((command+2), "%s %s", currentName, newName);
 
-            int currentBucket = hash(currentName, numBuckets);
-            int newBucket = hash(newName, numBuckets);
+            currentBucket = bucket;
+            newBucket = hash(arg2, numBuckets);
 
             multipleLock(currentBucket, newBucket);
 
-            searchResult = lookup(fs, currentName);
+            searchResult = lookup(fs, arg1);
 
-            if (searchResult && !lookup(fs, newName)) {
-                delete(fs, currentName);
-                create(fs, newName, searchResult);
+            if (searchResult && !lookup(fs, arg2)) {
+                delete(fs, arg1);
+                create(fs, arg2, searchResult);
             }
 
             UNLOCK_ACCESS(currentBucket);
@@ -270,6 +258,7 @@ void applyCommands(){
             exit(EXIT_FAILURE);
         }
     }
+    return 0;
 }
 
 /* -----------------------------------------------------------------
@@ -330,14 +319,14 @@ Funcao executada pelas tarefas escravas. Assim que estas estejam
 livres, deverao remover os comandos do vetor -inputCommands- 
 e executa-los
 ------------------------------------------------------------------*/
-void *consumidor() {
+/*void *consumidor() {
     while (1) {
         LOCK_COMMAND();
-        if (strcmp(inputCommands[headQueue], "q!")) {
+        if (strcmp(inputCommands[headQueue], "q!")) { //Mudar isto. Verificação constante desnecessária
             UNLOCK_COMMAND();
             WAIT_PODE_CONS();
             applyCommands();
-            POST_PODE_PROD();
+            POST_PODE_PROD(); //Assim que se copia o comando, é preciso dizer ao produtor para produzir
         }
         else {
             UNLOCK_COMMAND();
@@ -345,19 +334,19 @@ void *consumidor() {
             return NULL;
         }
     }
-}
+}*/
 
 /*------------------------------------------------------------------
 Esta funcao e' responsavel por criar o numero de threads indicadas 
 por numMaxThreads
 --------------------------------------------------------------------*/
-void createThreads(pthread_t threadIds[], int numMaxThreads) {
+/*void createThreads(pthread_t threadIds[], int numMaxThreads) {
     for(int i = 0; i < numMaxThreads; i++) {
         if(pthread_create(&(threadIds[i]), NULL, consumidor, NULL)) {
             perror("Unable to create thread in createThreads(int numMaxThreads)");
         }
     }
-}
+}*/
 
 /*Funcao responsavel por inicializar os locks e semaforos*/
 void initLocks() {
@@ -393,35 +382,60 @@ void destroyLocks() {
     }
 }
 
+void *threadFunc(void *cfd) {
+    char buffer[100];
+    char command;
+    char filename[100];
+    char perm[2];
+    int sock = *((int *) cfd);
+    
+    uid_t owner;
+    struct ucred info;
+
+    getsockopt(sock, 0, 0, &info, NULL);
+
+    owner = info.uid;
+
+    while(1) {
+        read(sock, buffer, 100);
+        sscanf(buffer, "%c %s %s", &command, filename, perm);
+        int success = applyCommands(command, filename, perm, owner);
+        write(sock, &success, sizeof(int));
+        close(sock);
+    }
+    return NULL;
+}
+
 /*------------------------------------------------------------------
 Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
     /*parseArgs(argc, argv);
     FILE *fp;
-    numMaxThreads = atoi(argv[3]);
+    numMaxThreads = atoi(argv[3]);*/
     numBuckets = atoi(argv[4]);
-    pthread_t threadIds[numMaxThreads];
+    /*pthread_t threadIds[numMaxThreads];*/
 
-    if(numMaxThreads <= 0) {
+    
+    /*if(numMaxThreads <= 0) {
         perror("Number of threads must be a number greater than 0");
         exit(EXIT_FAILURE);
-    }
+    }*/
     if(numBuckets <= 0) {
         perror("Number of buckets must be a number greater than 0");
         exit(EXIT_FAILURE);
     }
 
-    if(!(fp = fopen(argv[2], "w"))) {
+    /*if(!(fp = fopen(argv[2], "w"))) {
         perror("Unable to open file for writing");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     initLocks();
 
     fs = new_tecnicofs(numBuckets);
     
-    double time_ini = getTime();
+    /*double time_ini = getTime();
 
     if(MULTITHREADING) {
         createThreads(threadIds, numMaxThreads);  
@@ -436,29 +450,27 @@ int main(int argc, char* argv[]) {
 
     printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
 
-    print_tecnicofs_tree(fp, fs);
+    print_tecnicofs_tree(fp, fs);*/
     
     free_tecnicofs(fs);
 
-    if(fclose(fp)) {
+    /*if(fclose(fp)) {
         perror("Unable to close file");
-    }
-
-    destroyLocks();*/
-
-    char buffer[100];
+    }*/
 
     int sfd;
-    criaServidor(&sfd, argv[1]);
+    newServer(&sfd, argv[1]);
 
-    int new_sock;
-    getNewSocket(&new_sock, sfd);
-
-    read(new_sock, buffer, 100);
-    printf("%s\n", buffer);
+    while (1) {
+        int new_sock;
+        pthread_t tid;
+        getNewSocket(&new_sock, sfd);
+        pthread_create(&tid, 0, threadFunc, (void *) &new_sock);
+    }
 
     close(sfd);
-    close(new_sock);
 
+    destroyLocks();
+    
     exit(EXIT_SUCCESS);
 }

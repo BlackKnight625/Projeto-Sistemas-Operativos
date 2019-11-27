@@ -2,6 +2,7 @@
 #define FS_H
 #include "lib/bst.h"
 #include "lib/hash.h"
+#include "lib/inodes.h"
 #include <pthread.h>
 
 typedef struct tecnicofs {

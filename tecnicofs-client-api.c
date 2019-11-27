@@ -1,5 +1,6 @@
 #include "tecnicofs-api-constants.h"
 #include "sockets/sockets.h"
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -8,19 +9,17 @@ int sock;
 
 int tfsCreate(char *filename, permission ownerPermissions, permission othersPermissions) {
     //lookup filename return -1 if it exists
-    char buffer[100] = "c ";
-    strcat(buffer, filename);
-    strcat(buffer, " ");
-    char perm[12];
-    sprintf(perm, "%d", ownerPermissions);
-    strcat(buffer, perm);
-    sprintf(perm, "%d", othersPermissions);
-    strcat(buffer, perm);
+    int success;
+    char buffer[100] = "c";
+    sprintf(buffer, "%s %s %d%d", buffer, filename, ownerPermissions, othersPermissions);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
         return -1; //probably get a new error num
     }
-    return 0;
+    if (read(sock, &success, sizeof(int)) == -1) {
+        perror("Unable to read");
+    }
+    return success;
 }
 
 int tfsDelete(char *filename) {
@@ -34,10 +33,8 @@ int tfsDelete(char *filename) {
 }
 
 int tfsRename(char *filenameOld, char *filenameNew) {
-    char buffer[100] = "r ";
-    strcat(buffer, filenameOld);
-    strcat(buffer, " ");
-    strcat(buffer, filenameNew);
+    char buffer[100] = "r";
+    sprintf(buffer, "%s %s %s", buffer, filenameOld, filenameNew);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
         return -1; //probably get a new error num
@@ -62,7 +59,7 @@ int tfsWrite(int fd, char *buffer, int len) {
 }
 
 int tfsMount(char * address) {
-    return criaCliente(&sock, address);
+    return newClient(&sock, address);
 }
 
 int tfsUnmount() {
