@@ -9,14 +9,8 @@ int sock;
 
 int tfsCreate(char *filename, permission ownerPermissions, permission othersPermissions) {
     //lookup filename return -1 if it exists
-    char buffer[100] = "c ";
-    strcat(buffer, filename);
-    strcat(buffer, " ");
-    char perm[12];
-    sprintf(perm, "%d", ownerPermissions);
-    strcat(buffer, perm);
-    sprintf(perm, "%d", othersPermissions);
-    strcat(buffer, perm);
+    char buffer[100] = "c";
+    sprintf(buffer, "%s %s %d%d", buffer, filename, ownerPermissions, othersPermissions);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
         return -1; //probably get a new error num
