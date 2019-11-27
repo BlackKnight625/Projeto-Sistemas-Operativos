@@ -9,19 +9,17 @@ int sock;
 
 int tfsCreate(char *filename, permission ownerPermissions, permission othersPermissions) {
     //lookup filename return -1 if it exists
+    int success;
     char buffer[100] = "c";
     sprintf(buffer, "%s %s %d%d", buffer, filename, ownerPermissions, othersPermissions);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
         return -1; //probably get a new error num
     }
-    memset(buffer, 0, 100);
-    if (read(sock, buffer, 100) == -1) {
+    if (read(sock, &success, sizeof(int)) == -1) {
         perror("Unable to read");
     }
-    if (*buffer != "0")
-        return TECNICOFS_ERROR_FILE_ALREADY_EXISTS; //nao conseguiu criar o ficheiro
-    return 0;
+    return success;
 }
 
 int tfsDelete(char *filename) {

@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include "sockets.h"
 
 int newServer(int *sfd, char *address) {
@@ -29,7 +23,7 @@ int newServer(int *sfd, char *address) {
         return -1;
 
     //Marca o socket como o listening port
-    if (listen(*sfd, 0) == -1)
+    if (listen(*sfd, 5) == -1)
         return -1;
 
     return 0;    

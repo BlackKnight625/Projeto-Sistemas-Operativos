@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -7,6 +9,7 @@
 #include <sys/time.h>
 #include <semaphore.h>
 #include <unistd.h>
+#include <sys/un.h>
 #include "fs.h"
 #include "lib/hash.h"
 #include "sockets/sockets.h"
@@ -183,7 +186,7 @@ void multipleLock(int currentBucket, int newBucket) {
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-void applyCommands(char command, char arg1[], char arg2[], uid_t owner){
+int applyCommands(char command, char arg1[], char arg2[], uid_t owner){
     int searchResult;
     int iNumber;
     int bucket;
@@ -255,6 +258,7 @@ void applyCommands(char command, char arg1[], char arg2[], uid_t owner){
             exit(EXIT_FAILURE);
         }
     }
+    return 0;
 }
 
 /* -----------------------------------------------------------------
@@ -380,11 +384,25 @@ void destroyLocks() {
 
 void *threadFunc(void *cfd) {
     char buffer[100];
+    char command;
+    char filename[100];
+    char perm[2];
     int sock = *((int *) cfd);
-    read(sock, buffer, 100);
-    applyCommands();
-    write(sock, buffer, strlen(buffer));
-    close(sock);
+    
+    uid_t owner;
+    struct ucred info;
+
+    getsockopt(sock, NULL, NULL, &info, NULL);
+
+    owner = info.uid;
+
+    while(1) {
+        read(sock, buffer, 100);
+        sscanf(buffer, "%c %s %s", &command, filename, perm);
+        int success = applyCommands(command, filename, perm, owner);
+        write(sock, success, sizeof(int));
+        close(sock);
+    }
     return NULL;
 }
 
