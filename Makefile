@@ -13,9 +13,9 @@ LDFLAGS=-lm
 all: tecnicofs
 
 tecnicofs: lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-nosync lib/bst.o lib/hash.o fs.o main-nosync.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex lib/bst.o lib/hash.o fs.o main-mutex.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/bst.o lib/hash.o fs.o main-rwlock.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-nosync sockets/sockets.o lib/bst.o lib/hash.o fs.o main-nosync.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-mutex sockets/sockets.o lib/bst.o lib/hash.o fs.o main-mutex.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock sockets/sockets.o lib/bst.o lib/hash.o fs.o main-rwlock.o
 
 lib/bst.o: lib/bst.c lib/bst.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
