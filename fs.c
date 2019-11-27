@@ -3,10 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-int obtainNewInumber(tecnicofs* fs) {
-	int newInumber = ++(fs->nextINumber);
-	return newInumber;
-}
 
 tecnicofs* new_tecnicofs(int numRoots){
 	tecnicofs*fs = (tecnicofs*) malloc(sizeof(tecnicofs));
@@ -29,7 +25,7 @@ tecnicofs* new_tecnicofs(int numRoots){
 		fs->bstRoots[i] = NULL;
 	}
 
-	fs->nextINumber = 0;
+	fs->iNumber = 0;
 	fs->numRoots = numRoots;
 	return fs;
 }

@@ -8,12 +8,11 @@
 typedef struct tecnicofs {
     node** bstRoots;
     int numRoots;
-    int nextINumber;
+    int iNumber;
     pthread_mutex_t *mutexs;
     pthread_rwlock_t *rwlocks;
 } tecnicofs;
 
-int obtainNewInumber(tecnicofs* fs);
 tecnicofs* new_tecnicofs(int numRoots);
 void free_tecnicofs(tecnicofs* fs);
 void create(tecnicofs *fs, char *name, int iNumber);
