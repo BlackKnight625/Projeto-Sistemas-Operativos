@@ -209,9 +209,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int bucket;
     int currentBucket;
     int newBucket;
+    int isOpen;
     int result = 0; //Value returned by this function
     uid_t owner;
     char readContent[MAX_CONTENT_SIZE];
+    char* mode;
     permission ownerPerm;
     permission othersPerm;
     int len;
@@ -251,7 +253,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
             
-            len = inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE);
+            len = inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen);
 
 
             if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
@@ -289,6 +291,9 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if (currentBucket != newBucket) {
                 UNLOCK_ACCESS(newBucket);
             }
+            break;
+        case 's':
+            result = 1;
             break;
         default: { /* error */
             fprintf(stderr, "Error: command to apply\n");

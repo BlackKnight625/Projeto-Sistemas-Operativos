@@ -13,6 +13,8 @@ typedef struct inode_t {
     permission ownerPermissions;
     permission othersPermissions;
     char* fileContent;
+    char mode[2];
+    int isOpen;
 } inode_t;
 
 
@@ -21,7 +23,7 @@ void inode_table_destroy();
 int inode_create(uid_t owner, permission ownerPerm, permission othersPerm);
 int inode_delete(int inumber);
 int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *othersPerm,
-                     char* fileContents, int len);
+                     char* fileContents, int len, char* mode, int* isOpen);
 int inode_set(int inumber, char *contents, int len);
 
 
