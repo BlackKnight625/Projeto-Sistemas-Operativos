@@ -323,6 +323,9 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             iNumber = fileTable->iNumbers[fd];
+            if(iNumber == -1) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            } 
 
             if(inode_get(iNumber, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
@@ -340,6 +343,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
+            iNumber = fileTable->iNumbers[fd];
+            if(iNumber == -1) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            }
             
             break;
         case 'd':
