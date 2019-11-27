@@ -19,7 +19,7 @@ typedef struct inode_t {
 } inode_t;
 
 typedef struct open_file_table {
-    int iNumbers[MAX_OPEN_FILES]; //Pointers to inode_t's
+    int iNumbers[MAX_OPEN_FILES];
     int nOpenedFiles;
 } open_file_table;
 
