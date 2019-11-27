@@ -104,7 +104,7 @@ void doNothing(int bucket) {
     (void)bucket;
 }
 
-int hasPermissionToWrite(uid_t owner, uid_t person, int ownerPerm, int othersPerm) {
+int hasPermissionToWrite(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
     if(othersPerm == WRITE || othersPerm == RW) return 1;
     else if(owner == person) {
         if(ownerPerm == WRITE || ownerPerm == RW) return 1;
@@ -112,7 +112,7 @@ int hasPermissionToWrite(uid_t owner, uid_t person, int ownerPerm, int othersPer
     return 0;
 }
 
-int hasPermissionToRead(uid_t owner, uid_t person, int ownerPerm, int othersPerm) {
+int hasPermissionToRead(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
     if(othersPerm == READ || othersPerm == RW) return 1;
     else if(owner == person) {
         if(ownerPerm == READ || ownerPerm == RW) return 1;
@@ -210,6 +210,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int currentBucket;
     int newBucket;
     int result = 0; //Value returned by this function
+    uid_t owner;
+    char readContent[MAX_CONTENT_SIZE];
+    permission ownerPerm;
+    permission othersPerm;
+    int len;
 
     content[0] = 0;
 
@@ -238,12 +243,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             UNLOCK_ACCESS(bucket);
             break;
         case 'l':
-            uid_t owner;
-            char readContent[MAX_CONTENT_SIZE];
-            int ownerPerm;
-            int othersPerm;
-            int len;
-
             LOCK_READ_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
