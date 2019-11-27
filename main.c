@@ -456,7 +456,7 @@ int main(int argc, char* argv[]) {
 
     close(sfd);
 
-    /*destroyLocks();*/
+    destroyLocks();
     
     exit(EXIT_SUCCESS);
 }
