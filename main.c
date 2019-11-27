@@ -229,6 +229,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             iNumber = inode_create(commandSender, arg2[0], arg2[1]);
 
             LOCK_WRITE_ACCESS(bucket);
+
+            searchResult = lookup(fs, arg1);
+            if(searchResult != 0) {
+                return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
+            }
             
             create(fs, arg1, iNumber);
 
@@ -236,12 +241,13 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             result = 0;
             break;
         case 'l':
-            LOCK_READ_ACCESS(bucket);
             uid_t owner;
             char readContent[MAX_CONTENT_SIZE];
             int ownerPerm;
             int othersPerm;
             int len;
+
+            LOCK_READ_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
             
