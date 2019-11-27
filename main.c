@@ -6,8 +6,10 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <semaphore.h>
+#include <unistd.h>
 #include "fs.h"
 #include "lib/hash.h"
+#include "sockets/sockets.h"
 
 void doNothing(int bucket);
 
@@ -391,11 +393,21 @@ void destroyLocks() {
     }
 }
 
+void *threadFunc(void *cfd) {
+    char buffer[100];
+    int sock = *((int *) cfd);
+    read(sock, buffer, 100);
+    applyCommands();
+    write(sock, buffer, strlen(buffer));
+    close(sock);
+    return NULL;
+}
+
 /*------------------------------------------------------------------
 Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
-    parseArgs(argc, argv);
+    /*parseArgs(argc, argv);
     FILE *fp;
     numMaxThreads = atoi(argv[3]);
     numBuckets = atoi(argv[4]);
@@ -442,7 +454,21 @@ int main(int argc, char* argv[]) {
         perror("Unable to close file");
     }
 
-    destroyLocks();
+    destroyLocks();*/
+
+    char buffer[100];
+
+    int sfd;
+    newServer(&sfd, argv[1]);
+
+    while (1) {
+        int new_sock;
+        pthread_t tid;
+        getNewSocket(&new_sock, sfd);
+        pthread_create(&tid, 0, threadFunc, (void *) &new_sock);
+    }
+
+    close(sfd);
 
     exit(EXIT_SUCCESS);
 }
