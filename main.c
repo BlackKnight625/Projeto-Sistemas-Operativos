@@ -199,11 +199,18 @@ void multipleLock(int currentBucket, int newBucket) {
     }
 }
 
+void multipleUnlock(int currentBucket, int newBucket) {
+    UNLOCK_ACCESS(currentBucket);
+    if (currentBucket != newBucket) {
+        UNLOCK_ACCESS(newBucket);
+    }
+}
+
 /*------------------------------------------------------------------
 Funcao responsavel por ler um comando do vetor -inputCommands-
 e de o executar. Esta funcao e' chamada pelos consumidores
 ------------------------------------------------------------------*/
-int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, int sock, char* content){
+int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, int sock, char* content, open_file_table* fileTable){
     int searchResult;
     int iNumber;
     int bucket;
@@ -211,32 +218,36 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int newBucket;
     int isOpen;
     int result = 0; //Value returned by this function
+    int fd;
     uid_t owner;
-    char readContent[MAX_CONTENT_SIZE];
     char* mode;
     permission ownerPerm;
     permission othersPerm;
     int len;
 
-    content[0] = 0;
-
-    switch (command) { /*Generates the hash for the commands that need it*/
+    content[0] = 0; /*Indicates that the content's empty*/
+    
+    switch(command) { /*Calculates the hash only for the commands that need it*/
         case 'c':
-        case 'l':
         case 'd':
         case 'r':
+        case 'o':
             bucket = hash(arg1, numBuckets);
             break;
     }
+    
 
     switch (command) {
         case 'c':
-            iNumber = inode_create(commandSender, arg2[0], arg2[1]);
+            if((iNumber = inode_create(commandSender, arg2[0], arg2[1])) == -1) {
+                return TECNICOFS_ERROR_OTHER;
+            }
 
             LOCK_WRITE_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
             if(searchResult != -1) {
+                UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
             }
             
@@ -245,29 +256,98 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             UNLOCK_ACCESS(bucket);
             break;
         case 'l':
+            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+                return TECNICOFS_ERROR_OTHER;
+            }
+
+            iNumber = fileTable->iNumbers[fd];
+            
+            if((len = inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen)) == -1) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+
+            else if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
+            }
+            else if (mode[0] != 'r') {
+                return TECNICOFS_ERROR_INVALID_MODE;
+            }
+            else if (isOpen == 0) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            }
+
+            break;
+        case 'o':
             LOCK_READ_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
 
             if(searchResult != -1) {
+                UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
-            
-            len = inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen);
 
-
-            if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
-                return TECNICOFS_ERROR_PERMISSION_DENIED;
+            else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+                UNLOCK_ACCESS(bucket);
+                return TECNICOFS_ERROR_OTHER;
             }
 
-            strncpy(content, readContent, len);  
-            
+            else if(isOpen) {
+                UNLOCK_ACCESS(bucket);
+                return TECNICOFS_ERROR_FILE_IS_OPEN;
+            }
+
+            inode_open(searchResult, arg2[0]);
+
+            if(fileTable->nOpenedFiles == MAX_OPEN_FILES) {
+                UNLOCK_ACCESS(bucket);
+                return TECNICOFS_ERROR_MAXED_OPEN_FILES;
+            }
+            for(int i = 0; i < MAX_OPEN_FILES; i++) {
+                if(fileTable->iNumbers[i] == -1) {
+                    fileTable->iNumbers[i] = searchResult;
+                    fileTable->nOpenedFiles++;
+                    break;
+                }
+            }
+
             UNLOCK_ACCESS(bucket);
+            break;
+        case 'x':
+            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+                return TECNICOFS_ERROR_OTHER;
+            }
+
+            iNumber = fileTable->iNumbers[fd];
+
+            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+            else if(!isOpen) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            }
+
+            inode_close(iNumber);
+
+            break;
+        case 'w':
+            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+                return TECNICOFS_ERROR_OTHER;
+            }
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
+            searchResult = lookup(fs, arg1);
 
+            if(searchResult != -1) {
+                UNLOCK_ACCESS(bucket);
+                return TECNICOFS_ERROR_FILE_NOT_FOUND;
+            }
 
+            else if(inode_delete(searchResult) == -1) {
+                UNLOCK_ACCESS(bucket);
+                return TECNICOFS_ERROR_OTHER;
+            }
 
             delete(fs, arg1);
             
@@ -282,15 +362,17 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             searchResult = lookup(fs, arg1);
 
-            if (searchResult && !lookup(fs, arg2)) {
+            if(searchResult != -1) {
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_FILE_NOT_FOUND;
+            }
+
+            if (lookup(fs, arg2) == -1) {
                 delete(fs, arg1);
                 create(fs, arg2, searchResult);
             }
 
-            UNLOCK_ACCESS(currentBucket);
-            if (currentBucket != newBucket) {
-                UNLOCK_ACCESS(newBucket);
-            }
+            multipleUnlock(currentBucket, newBucket);
             break;
         case 's':
             result = 1;
@@ -431,9 +513,11 @@ void *threadFunc(void *cfd) {
     char perm[2];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
-    
+    open_file_table fileTable;
     uid_t owner;
     struct ucred info;
+
+    open_file_table_init(&fileTable);
 
     getsockopt(sock, 0, 0, &info, NULL);
 
@@ -443,10 +527,15 @@ void *threadFunc(void *cfd) {
         memset(buffer, 0, 100);
         read(sock, buffer, 100);
         sscanf(buffer, "%c %s %s", &command, filename, perm);
-        int success = applyCommands(command, filename, perm, owner, sock, content);
+        int success = applyCommands(command, filename, perm, owner, sock, content, &fileTable);
+        if (success == 1)
+            break;
         write(sock, &success, sizeof(int));
-        close(sock);
+        if (success == 0 && *content != '\0') {
+            write(sock, content, strlen(content));
+        }
     }
+    close(sock);
     return NULL;
 }
 

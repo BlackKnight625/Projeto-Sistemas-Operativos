@@ -141,7 +141,7 @@ int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *other
         *othersPerm = inode_table[inumber].othersPermissions;
 
     if(mode)
-        strcpy(mode, inode_table[inumber].mode);
+        *mode = inode_table[inumber].mode;
 
     if(isOpen)
         *isOpen = inode_table[inumber].isOpen;
@@ -157,14 +157,14 @@ int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *other
     return 0;
 }
 
-int inode_open(int inumber, char* mode) {
+int inode_open(int inumber, char mode) {
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){
         printf("inode_getValues: invalid inumber %d\n", inumber);
         unlock_inode_table();
         return -1;
     }
-    if(mode) strcpy(inode_table[inumber].mode, mode);
+    inode_table[inumber].mode = mode;
     inode_table[inumber].isOpen = 1;
     unlock_inode_table();
     return 0;
@@ -217,4 +217,12 @@ int inode_set(int inumber, char *fileContents, int len){
 
     unlock_inode_table();
     return 0;
+}
+
+
+void open_file_table_init(open_file_table* fileTable) {
+    fileTable->nOpenedFiles = 0;
+    for(int i = 0; i < MAX_OPEN_FILES; i++) {
+        fileTable->iNumbers[i] = -1;
+    }
 }
