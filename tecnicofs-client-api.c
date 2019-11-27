@@ -14,7 +14,6 @@ int tfsCreate(char *filename, permission ownerPermissions, permission othersPerm
     sprintf(buffer, "%s %s %d%d", buffer, filename, ownerPermissions, othersPermissions);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
-        return -1; //probably get a new error num
     }
     if (read(sock, &success, sizeof(int)) == -1) {
         perror("Unable to read");
@@ -23,23 +22,29 @@ int tfsCreate(char *filename, permission ownerPermissions, permission othersPerm
 }
 
 int tfsDelete(char *filename) {
+    int success;
     char buffer[100] = "d ";
     strcat(buffer, filename);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
-        return -1; //probably get a new error num
     }
-    return 0;
+    if (read(sock, &success, sizeof(int)) == -1) {
+        perror("Unable to read");
+    }
+    return success;
 }
 
 int tfsRename(char *filenameOld, char *filenameNew) {
+    int success;
     char buffer[100] = "r";
     sprintf(buffer, "%s %s %s", buffer, filenameOld, filenameNew);
     if (write(sock, buffer, strlen(buffer)) == -1) {
         perror("Unable to send message");
-        return -1; //probably get a new error num
     }
-    return 0;
+    if (read(sock, &success, sizeof(int)) == -1) {
+        perror("Unable to read");
+    }
+    return success;
 }
 
 int tfsOpen(char *filename, permission mode) {
