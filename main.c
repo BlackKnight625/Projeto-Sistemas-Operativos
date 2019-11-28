@@ -265,7 +265,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             } 
-            else if((len = inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen)) == -1) {
+            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -347,6 +347,24 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
+
+            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, mode, &isOpen) == -1) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+            else if(!hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
+            }
+            else if (mode[0] != 'w') {
+                return TECNICOFS_ERROR_INVALID_MODE;
+            }
+            else if (isOpen == 0) {
+                return TECNICOFS_ERROR_FILE_NOT_OPEN;
+            }
+
+            else if(inode_set(iNumber, arg2, strlen(arg2))) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+
             
             break;
         case 'd':
