@@ -245,14 +245,14 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
-            if((iNumber = inode_create(commandSender, arg2[0], arg2[1])) == -1) {
+            if((iNumber = inode_create(commandSender, arg2[0]-48, arg2[1]-48)) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
             LOCK_WRITE_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
-            if(searchResult != -1) {
+            if(searchResult != -1) { 
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
             }
@@ -291,7 +291,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             searchResult = lookup(fs, arg1);
 
-            if(searchResult != -1) {
+            if(searchResult == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
@@ -322,6 +322,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             UNLOCK_ACCESS(bucket);
+            result = searchResult;
             break;
         case 'x':
             if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
@@ -345,29 +346,36 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             break;
         case 'w':
-            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+            if((fd = atoi(arg1)) == 0 && fd < 0) { /*If atoi returns 0, then arg1 contains a non-numeric string. On success fd must be a positive integer*/
+                printf("TECNICOFS_ERROR_OTHER: 1\n");
                 return TECNICOFS_ERROR_OTHER;
             }
 
             iNumber = fileTable->iNumbers[fd];
             if(iNumber == -1) {
+                printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
             else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, mode, &isOpen) == -1) {
+                printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
             else if(!hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
+                printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
             else if (mode[0] != 'w') {
+                printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if (isOpen == 0) {
+                printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
             else if(inode_set(iNumber, arg2, strlen(arg2))) {
+                printf("TECNICOFS_ERROR_OTHER: 3\n");
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -377,7 +385,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             LOCK_WRITE_ACCESS(bucket);
             searchResult = lookup(fs, arg1);
 
-            if(searchResult != -1) {
+            if(searchResult == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
@@ -548,7 +556,7 @@ void *threadFunc(void *cfd) {
     char buffer[MAX_INPUT_SIZE];
     char command;
     char filename[MAX_INPUT_SIZE];
-    char perm[2];
+    char arg2[MAX_INPUT_SIZE];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
     open_file_table fileTable;
@@ -563,9 +571,9 @@ void *threadFunc(void *cfd) {
 
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
-        read(sock, buffer, MAX_INPUT_SIZE);        
-        sscanf(buffer, "%c %s %s", &command, filename, perm);
-        int success = applyCommands(command, filename, perm, owner, sock, content, &fileTable);
+        read(sock, buffer, MAX_INPUT_SIZE);  
+        sscanf(buffer, "%c %s %s", &command, filename, arg2);
+        int success = applyCommands(command, filename, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));

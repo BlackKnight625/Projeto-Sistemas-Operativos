@@ -40,3 +40,24 @@ clean:
 
 run: tecnicofs
 	./tecnicofs
+
+tecnicofs-client-api.o: tecnicofs-client-api.c tecnicofs-client-api.h tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o tecnicofs-client-api.o -c tecnicofs-client-api.c
+
+api-tests/client-api-test-create.o: api-tests/client-api-test-create.c tecnicofs-client-api.h tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o api-tests/client-api-test-create.o -c api-tests/client-api-test-create.c
+
+api-tests/client-api-test-delete.o: api-tests/client-api-test-delete.c tecnicofs-client-api.h tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o api-tests/client-api-test-delete.o -c api-tests/client-api-test-delete.c
+
+api-tests/client-api-test-read.o: api-tests/client-api-test-read.c tecnicofs-client-api.h tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o api-tests/client-api-test-read.o -c api-tests/client-api-test-read.c
+
+api-tests/client-api-test-success.o: api-tests/client-api-test-success.c tecnicofs-client-api.h tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o api-tests/client-api-test-success.o -c api-tests/client-api-test-success.c
+
+clients: sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o api-tests/client-api-test-delete.o api-tests/client-api-test-read.o api-tests/client-api-test-success.o
+	$(CC) $(CFLAGS) -o client-api-test-create sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o
+	$(CC) $(CFLAGS) -o client-api-test-delete sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-delete.o
+	$(CC) $(CFLAGS) -o client-api-test-read sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-read.o
+	$(CC) $(CFLAGS) -o client-api-test-success sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-success.o
