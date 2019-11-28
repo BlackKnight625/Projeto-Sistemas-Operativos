@@ -95,7 +95,7 @@ int tfsRead(int fd, char *buffer, int len) {
 int tfsWrite(int fd, char *buffer, int len) {
     int success;
     char command[MAX_INPUT_SIZE] = "w";
-    sprintf(command, "%s %d %d", command, fd, buffer);
+    sprintf(command, "%s %d %s", command, fd, buffer);
     if (write(sock, command, strlen(command)) == -1) {
         perror("Unable to send message");
     }
@@ -111,7 +111,7 @@ int tfsMount(char * address) {
 
 int tfsUnmount() {
     char command = 's';
-    if (write(sock, command, sizeof(char)) == -1) {
+    if (write(sock, &command, sizeof(char)) == -1) {
         perror("Unable to send message");
     }
     if (close(sock) == -1)

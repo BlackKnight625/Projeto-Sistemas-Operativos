@@ -10,6 +10,7 @@
 #include <semaphore.h>
 #include <unistd.h>
 #include <sys/un.h>
+#include <signal.h>
 #include "fs.h"
 #include "lib/hash.h"
 #include "sockets/sockets.h"
@@ -67,6 +68,7 @@ void doNothing(int bucket);
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 #define MAX_CONTENT_SIZE 100
+#define NUM_MAX_THREADS 16
 
 
 /*Vetor de Strings que guarda os comandos*/
@@ -75,6 +77,7 @@ int numberCommands = 0;
 int prodCommands = 0;
 int consCommands = 0;
 int headQueue = 0;
+int nThreads = 0;
 
 /*Variáveis globais*/
 pthread_mutex_t mutexCommand;
@@ -84,6 +87,9 @@ int numMaxThreads;
 int numBuckets;
 sem_t pode_prod;
 sem_t pode_cons;
+int sfd;
+pthread_t threadIds[NUM_MAX_THREADS];
+FILE *fp;
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -532,7 +538,7 @@ void *threadFunc(void *cfd) {
 
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
-        read(sock, buffer, MAX_INPUT_SIZE);
+        read(sock, buffer, MAX_INPUT_SIZE);        
         sscanf(buffer, "%c %s %s", &command, filename, perm);
         int success = applyCommands(command, filename, perm, owner, sock, content, &fileTable);
         if (success == 1)
@@ -546,15 +552,27 @@ void *threadFunc(void *cfd) {
     return NULL;
 }
 
+void apanhaCTRLC(int s) {
+    close(sfd);
+    for (int i = 0; i < nThreads; i++) {
+        if (pthread_join(threadIds[i], NULL))
+            perror("Unable to join");
+    }
+    print_tecnicofs_tree(fp, fs);
+
+    free_tecnicofs(fs);
+
+    destroyLocks();
+    
+    exit(EXIT_SUCCESS);
+}
+
 /*------------------------------------------------------------------
 Funcao main
 --------------------------------------------------------------------*/
 int main(int argc, char* argv[]) {
     parseArgs(argc, argv);
-    /*FILE *fp;*/
-    numMaxThreads = 16;
     numBuckets = atoi(argv[3]);
-    /*pthread_t threadIds[numMaxThreads];*/
 
     
     /*if(numMaxThreads <= 0) {
@@ -566,10 +584,10 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /*if(!(fp = fopen(argv[2], "w"))) {
+    if(!(fp = fopen(argv[2], "w"))) {
         perror("Unable to open file for writing");
         exit(EXIT_FAILURE);
-    }*/
+    }
 
     initLocks();
 
@@ -588,27 +606,29 @@ int main(int argc, char* argv[]) {
 
     double time_f = getTime();
 
-    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
-
-    print_tecnicofs_tree(fp, fs);*/
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);*/
 
     /*if(fclose(fp)) {
         perror("Unable to close file");
     }*/
 
-    int sfd;
+    signal(SIGINT, apanhaCTRLC);
+
     newServer(&sfd, argv[1]);
+
+    int ix = 0;
 
     while (1) {
         int new_sock;
-        pthread_t tid;
         getNewSocket(&new_sock, sfd);
-        pthread_create(&tid, 0, threadFunc, (void *) &new_sock);
+        pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
+        nThreads += 1;
+        ix += 1;
     }
 
-    free_tecnicofs(fs);
+    print_tecnicofs_tree(fp, fs);
 
-    close(sfd);
+    free_tecnicofs(fs);
 
     destroyLocks();
     
