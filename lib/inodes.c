@@ -160,7 +160,7 @@ int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *other
 int inode_open(int inumber, char mode) {
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){
-        printf("inode_getValues: invalid inumber %d\n", inumber);
+        printf("inode_open: invalid inumber %d\n", inumber);
         unlock_inode_table();
         return -1;
     }
@@ -173,7 +173,7 @@ int inode_open(int inumber, char mode) {
 int inode_close(int inumber) {
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){
-        printf("inode_getValues: invalid inumber %d\n", inumber);
+        printf("inode_close: invalid inumber %d\n", inumber);
         unlock_inode_table();
         return -1;
     }

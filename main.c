@@ -291,7 +291,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if (!isOpen) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
-
+            result = strlen(content);
             break;
         case 'o':
             LOCK_READ_ACCESS(bucket);
@@ -595,7 +595,10 @@ void *threadFunc(void *cfd) {
 
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
-        read(sock, buffer, MAX_INPUT_SIZE);  
+        if(read(sock, buffer, MAX_INPUT_SIZE) == -1) {
+            perror("Error on read");
+            break;   
+        }
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
         printf("Reading buffer: %s\n", buffer);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
@@ -684,6 +687,7 @@ int main(int argc, char* argv[]) {
     while (1) {
         int new_sock;
         getNewSocket(&new_sock, sfd);
+        printf("Creating thread: %d\n", new_sock);
         pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
         nThreads += 1;
         ix += 1;
