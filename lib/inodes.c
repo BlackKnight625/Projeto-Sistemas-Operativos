@@ -165,7 +165,7 @@ int inode_open(int inumber, char mode) {
         return -1;
     }
     inode_table[inumber].mode = mode;
-    inode_table[inumber].isOpen = 1;
+    inode_table[inumber].isOpen++;
     unlock_inode_table();
     return 0;
 }
@@ -177,7 +177,7 @@ int inode_close(int inumber) {
         unlock_inode_table();
         return -1;
     }
-    inode_table[inumber].isOpen = 0;
+    inode_table[inumber].isOpen--;
     unlock_inode_table();
     return 0;
 }

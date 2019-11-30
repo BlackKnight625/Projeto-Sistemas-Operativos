@@ -14,8 +14,8 @@ typedef struct inode_t {
     permission ownerPermissions;
     permission othersPermissions;
     char* fileContent;
-    permission mode;
-    int isOpen;
+    char mode;
+    int isOpen; /*Holds the number of clients that curretly have this file open. Is 0 when it's closed*/
 } inode_t;
 
 typedef struct open_file_table {

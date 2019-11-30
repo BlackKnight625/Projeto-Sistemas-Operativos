@@ -113,18 +113,18 @@ void doNothing(int bucket) {
 }
 
 int hasPermissionToWrite(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
-    if(othersPerm == WRITE || othersPerm == RW) return 1;
-    else if(owner == person) {
+    if(owner == person) {
         if(ownerPerm == WRITE || ownerPerm == RW) return 1;
     }
+    if(othersPerm == WRITE || othersPerm == RW) return 1;
     return 0;
 }
 
 int hasPermissionToRead(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
-    if(othersPerm == READ || othersPerm == RW) return 1;
-    else if(owner == person) {
+    if(owner == person) {
         if(ownerPerm == READ || ownerPerm == RW) return 1;
     }
+    if(othersPerm == READ || othersPerm == RW) return 1;
     return 0;
 }
 
@@ -287,7 +287,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if (mode != '1') {
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
-            else if (isOpen == 0) {
+            else if (isOpen) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
@@ -302,20 +302,16 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+            else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, NULL, 0, NULL, NULL) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
-            }
-
-            else if(isOpen) {
-                UNLOCK_ACCESS(bucket);
-                return TECNICOFS_ERROR_FILE_IS_OPEN;
             }
 
             if(fileTable->nOpenedFiles == MAX_OPEN_FILES) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_MAXED_OPEN_FILES;
             }
+            UNLOCK_ACCESS(bucket);
 
             inode_open(searchResult, arg2[0]);
 
@@ -326,8 +322,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                     break;
                 }
             }
-
-            UNLOCK_ACCESS(bucket);
+            
             result = searchResult;
             break;
         case 'x':
@@ -375,7 +370,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
-            else if (isOpen == 0) {
+            else if (!isOpen) {
                 printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
@@ -396,6 +391,14 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
+            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+                printf("TECNICOFS_ERROR_OTHER: 2\n");
+                return TECNICOFS_ERROR_OTHER;
+            }
+            else if(isOpen) {
+                return TECNICOFS_ERROR_FILE_IS_OPEN;
+            }
+
             else if(inode_delete(searchResult) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
@@ -413,6 +416,16 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             multipleLock(currentBucket, newBucket);
 
             searchResult = lookup(fs, arg1);
+
+            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+                printf("TECNICOFS_ERROR_OTHER: 2\n");
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_OTHER;
+            }
+            else if(isOpen) {
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_FILE_IS_OPEN;
+            }
 
             if(searchResult != -1) {
                 multipleUnlock(currentBucket, newBucket);
