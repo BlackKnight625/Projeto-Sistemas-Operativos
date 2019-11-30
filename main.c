@@ -372,7 +372,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            if (mode != '1' || mode!= '3') {
+            if (mode != '1' && mode!= '3') {
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
@@ -580,7 +580,7 @@ void *threadFunc(void *cfd) {
         memset(buffer, 0, MAX_INPUT_SIZE);
         read(sock, buffer, MAX_INPUT_SIZE);  
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
-        printf("buffer: %s\n", buffer);
+        printf("Reading buffer: %s\n", buffer);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
