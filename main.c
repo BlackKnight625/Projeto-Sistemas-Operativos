@@ -17,6 +17,8 @@
 
 void doNothing(int bucket);
 
+//GITHUB E MERDA
+
 /*Testa existência de macros no compilador*/
 #if defined MUTEX
 #define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock LOCK_COMMAND")
@@ -226,7 +228,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int result = 0; //Value returned by this function
     int fd;
     uid_t owner;
-    char* mode = NULL;
+    char mode;
     permission ownerPerm;
     permission othersPerm;
     int len;
@@ -275,14 +277,14 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             } 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &mode, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
             else if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            else if (mode[0] != READ || mode[0] != RW) {
+            else if (mode != '1') {
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if (isOpen == 0) {
@@ -361,7 +363,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, mode, &isOpen) == -1) {
+            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &mode, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -369,7 +371,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            else if (mode[0] != WRITE || mode[0] != RW) {
+            if (mode != '1' || mode!= '3') {
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
