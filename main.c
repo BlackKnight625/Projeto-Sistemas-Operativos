@@ -610,9 +610,11 @@ void *threadFunc(void *cfd) {
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
+        printf("Success: %d\n", success);
+        printf("Content: %s\n", content);
         write(sock, &success, sizeof(int));
         if (*content != '\0' && success > 0) {
-            write(sock, content, strlen(content));
+            write(sock, content, success);
         }
     }
     close(sock);
