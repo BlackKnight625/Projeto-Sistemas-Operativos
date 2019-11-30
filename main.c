@@ -92,6 +92,7 @@ sem_t pode_cons;
 int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
+double time_ini;
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -561,7 +562,7 @@ void destroyLocks() {
 void *threadFunc(void *cfd) {
     char buffer[MAX_INPUT_SIZE];
     char command;
-    char filename[MAX_INPUT_SIZE];
+    char arg1[MAX_INPUT_SIZE];
     char arg2[MAX_INPUT_SIZE];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
@@ -578,8 +579,9 @@ void *threadFunc(void *cfd) {
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
         read(sock, buffer, MAX_INPUT_SIZE);  
-        sscanf(buffer, "%c %s %s", &command, filename, arg2);
-        int success = applyCommands(command, filename, arg2, owner, sock, content, &fileTable);
+        sscanf(buffer, "%c %s %s", &command, arg1, arg2);
+        printf("buffer: %s\n", buffer);
+        int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));
@@ -597,6 +599,11 @@ void apanhaCTRLC(int s) {
         if (pthread_join(threadIds[i], NULL))
             perror("Unable to join");
     }
+
+    double time_f = getTime();
+
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
+
     print_tecnicofs_tree(fp, fs);
 
     free_tecnicofs(fs);
@@ -632,9 +639,9 @@ int main(int argc, char* argv[]) {
 
     fs = new_tecnicofs(numBuckets);
     
-    /*double time_ini = getTime();
+    time_ini = getTime();
 
-    if(MULTITHREADING) {
+    /*if(MULTITHREADING) {
         createThreads(threadIds, numMaxThreads);  
     }
     else {
