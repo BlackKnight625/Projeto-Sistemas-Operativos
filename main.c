@@ -292,6 +292,9 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
             result = strlen(content);
+
+            printf("%d\n", result);
+
             break;
         case 'o':
             LOCK_READ_ACCESS(bucket);
@@ -605,7 +608,7 @@ void *threadFunc(void *cfd) {
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));
-        if (success == 0 && *content != '\0') {
+        if (*content != '\0' && success == atoi(arg2)-1) {
             write(sock, content, strlen(content));
         }
     }
