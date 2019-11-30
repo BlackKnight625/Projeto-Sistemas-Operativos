@@ -92,6 +92,7 @@ sem_t pode_cons;
 int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
+double time_ini;
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -366,7 +367,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            if (mode != '1' || mode!= '3') {
+            if (mode != '1' && mode!= '3') {
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
@@ -417,6 +418,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             searchResult = lookup(fs, arg1);
 
+            if(searchResult != -1) {
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_FILE_NOT_FOUND;
+            }
+
             else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 multipleUnlock(currentBucket, newBucket);
@@ -427,14 +433,13 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_IS_OPEN;
             }
 
-            if(searchResult != -1) {
-                multipleUnlock(currentBucket, newBucket);
-                return TECNICOFS_ERROR_FILE_NOT_FOUND;
-            }
-
             if (lookup(fs, arg2) == -1) {
                 delete(fs, arg1);
                 create(fs, arg2, searchResult);
+            }
+            else {
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
             }
 
             multipleUnlock(currentBucket, newBucket);
@@ -574,7 +579,7 @@ void destroyLocks() {
 void *threadFunc(void *cfd) {
     char buffer[MAX_INPUT_SIZE];
     char command;
-    char filename[MAX_INPUT_SIZE];
+    char arg1[MAX_INPUT_SIZE];
     char arg2[MAX_INPUT_SIZE];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
@@ -591,8 +596,9 @@ void *threadFunc(void *cfd) {
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
         read(sock, buffer, MAX_INPUT_SIZE);  
-        sscanf(buffer, "%c %s %s", &command, filename, arg2);
-        int success = applyCommands(command, filename, arg2, owner, sock, content, &fileTable);
+        sscanf(buffer, "%c %s %s", &command, arg1, arg2);
+        printf("Reading buffer: %s\n", buffer);
+        int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));
@@ -610,6 +616,11 @@ void apanhaCTRLC(int s) {
         if (pthread_join(threadIds[i], NULL))
             perror("Unable to join");
     }
+
+    double time_f = getTime();
+
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
+
     print_tecnicofs_tree(fp, fs);
 
     free_tecnicofs(fs);
@@ -645,9 +656,9 @@ int main(int argc, char* argv[]) {
 
     fs = new_tecnicofs(numBuckets);
     
-    /*double time_ini = getTime();
+    time_ini = getTime();
 
-    if(MULTITHREADING) {
+    /*if(MULTITHREADING) {
         createThreads(threadIds, numMaxThreads);  
     }
     else {
