@@ -285,10 +285,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            else if (mode != '1') {
+            else if (mode - '0' != READ && mode - '0' != RW) {
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
-            else if (isOpen) {
+            else if (!isOpen) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
@@ -367,7 +367,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            if (mode != '1' && mode!= '3') {
+            if (mode - '0' != WRITE && mode - '0' != RW) {
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
