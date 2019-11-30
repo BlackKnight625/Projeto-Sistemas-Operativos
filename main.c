@@ -245,7 +245,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
-            if((iNumber = inode_create(commandSender, arg2[0]-48, arg2[1]-48)) == -1) {
+            if((iNumber = inode_create(commandSender, arg2[0] -'0', arg2[1] -'0')) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -346,7 +346,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             break;
         case 'w':
-            if((fd = atoi(arg1)) == 0 && fd < 0) { /*If atoi returns 0, then arg1 contains a non-numeric string. On success fd must be a positive integer*/
+            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 printf("TECNICOFS_ERROR_OTHER: 1\n");
                 return TECNICOFS_ERROR_OTHER;
             }
