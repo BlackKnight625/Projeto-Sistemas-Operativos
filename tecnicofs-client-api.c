@@ -73,19 +73,19 @@ int tfsClose(int fd) {
     return success;
 }
 
-//esta funcao deve retornar um int seguido de uma string 
+//esta funcao deve receber do server um int seguido de uma string 
 int tfsRead(int fd, char *buffer, int len) {
     int success;
     char command[MAX_INPUT_SIZE] = "l";
     sprintf(command, "%s %d %d", command, fd, len);
     if (write(sock, command, strlen(command)) == -1) {
-        perror("Unable to send message");
+        perror("Unable to send message in tfsRead");
     }
     if (read(sock, &success, sizeof(int)) == -1) { 
-        perror("Unable to read");
+        perror("Unable to read in tfsRead");
     }
     if (read(sock, buffer, len) == -1) { 
-        perror("Unable to read");
+        perror("Unable to read in tfsRead");
     }
     if (success != 0)
         return success;
@@ -97,10 +97,10 @@ int tfsWrite(int fd, char *buffer, int len) {
     char command[MAX_INPUT_SIZE] = "w";
     sprintf(command, "%s %d %s", command, fd, buffer);
     if (write(sock, command, strlen(command)) == -1) {
-        perror("Unable to send message");
+        perror("Unable to send message in tfsWrite");
     }
     if (read(sock, &success, sizeof(int)) == -1) {
-        perror("Unable to read");
+        perror("Unable to read in tfsWrite");
     }
     return success;
 }
@@ -115,6 +115,6 @@ int tfsUnmount() {
         perror("Unable to send message");
     }
     if (close(sock) == -1)
-        return -1;
+        return TECNICOFS_ERROR_OTHER;
     return 0;
 }

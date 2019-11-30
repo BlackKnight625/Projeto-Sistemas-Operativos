@@ -90,6 +90,7 @@ sem_t pode_cons;
 int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
+double time_ini;
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -226,7 +227,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     int result = 0; //Value returned by this function
     int fd;
     uid_t owner;
-    char* mode = NULL;
+    char mode;
     permission ownerPerm;
     permission othersPerm;
     int len;
@@ -245,7 +246,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
-            if((iNumber = inode_create(commandSender, arg2[0]-48, arg2[1]-48)) == -1) {
+            if((iNumber = inode_create(commandSender, arg2[0]-48, arg2[1]-48)) == -1) { /* !!! Nao faz sentido criarmos inode antes de verificarmos se ja existe */
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -266,19 +267,21 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
+            printf("%d\n", fd);
+
             iNumber = fileTable->iNumbers[fd];
 
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             } 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, mode, &isOpen) == -1) {
+            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &mode, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
             else if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            else if (mode[0] != 'r') {
+            else if (mode != 'r') {
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if (isOpen == 0) {
@@ -300,6 +303,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
             }
+
+            /* !!! e' preciso verificar se o UID tem premissao para abrir fich no modo indicado*/
 
             else if(isOpen) {
                 UNLOCK_ACCESS(bucket);
@@ -346,7 +351,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             break;
         case 'w':
-            if((fd = atoi(arg1)) == 0 && fd < 0) { /*If atoi returns 0, then arg1 contains a non-numeric string. On success fd must be a positive integer*/
+            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 printf("TECNICOFS_ERROR_OTHER: 1\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -357,24 +362,24 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, mode, &isOpen) == -1) {
+            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &mode, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
-            else if(!hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
+            if(!hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
-            else if (mode[0] != 'w') {
+            if (mode != '1' || mode!= '3') {
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
-            else if (isOpen == 0) {
+            if (isOpen == 0) {
                 printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
-            else if(inode_set(iNumber, arg2, strlen(arg2))) {
+            if(inode_set(iNumber, arg2, strlen(arg2))) {
                 printf("TECNICOFS_ERROR_OTHER: 3\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -390,10 +395,12 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_delete(searchResult) == -1) {
+            else if(inode_delete(searchResult) == -1) { /* !!! esta verificacao e redundante porque nos ja verificamos o searchResult*/
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
             }
+
+            /* !!! Em vez disso a verificacao a fazer e' se o owner_id e' de facto o UID de quem criou o ficheiro*/ 
 
             delete(fs, arg1);
             
@@ -555,7 +562,7 @@ void destroyLocks() {
 void *threadFunc(void *cfd) {
     char buffer[MAX_INPUT_SIZE];
     char command;
-    char filename[MAX_INPUT_SIZE];
+    char arg1[MAX_INPUT_SIZE];
     char arg2[MAX_INPUT_SIZE];
     char content[MAX_CONTENT_SIZE];
     int sock = *((int *) cfd);
@@ -571,9 +578,10 @@ void *threadFunc(void *cfd) {
 
     while(1) {
         memset(buffer, 0, MAX_INPUT_SIZE);
-        read(sock, buffer, MAX_INPUT_SIZE);  
-        sscanf(buffer, "%c %s %s", &command, filename, arg2);
-        int success = applyCommands(command, filename, arg2, owner, sock, content, &fileTable);
+        read(sock, buffer, MAX_INPUT_SIZE);
+        printf("Reading buffer: %s\n", buffer);
+        sscanf(buffer, "%c %s %s", &command, arg1, arg2);
+        int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));
@@ -591,6 +599,11 @@ void apanhaCTRLC(int s) {
         if (pthread_join(threadIds[i], NULL))
             perror("Unable to join");
     }
+
+    double time_f = getTime();
+
+    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);
+
     print_tecnicofs_tree(fp, fs);
 
     free_tecnicofs(fs);
@@ -626,9 +639,9 @@ int main(int argc, char* argv[]) {
 
     fs = new_tecnicofs(numBuckets);
     
-    /*double time_ini = getTime();
+    time_ini = getTime();
 
-    if(MULTITHREADING) {
+    /*if(MULTITHREADING) {
         createThreads(threadIds, numMaxThreads);  
     }
     else {
