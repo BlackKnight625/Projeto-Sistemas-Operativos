@@ -269,7 +269,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             UNLOCK_ACCESS(bucket);
             break;
         case 'l':
-            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+            if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -291,9 +291,12 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if (!isOpen) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
-            result = strlen(content);
 
-            printf("%d\n", result);
+
+            len = atoi(arg2)-1;
+            if (len > strlen(content))
+                result = strlen(content);
+            else { result = len; }
 
             break;
         case 'o':
@@ -330,7 +333,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             result = searchResult;
             break;
         case 'x':
-            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+            if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -351,7 +354,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             break;
         case 'w':
-            if(arg1[0] != '0' && (fd = atoi(arg1)) == 0) { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+            if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
                 printf("TECNICOFS_ERROR_OTHER: 1\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -608,7 +611,7 @@ void *threadFunc(void *cfd) {
         if (success == 1)
             break;
         write(sock, &success, sizeof(int));
-        if (*content != '\0' && success == atoi(arg2)-1) {
+        if (*content != '\0' && success > 0) {
             write(sock, content, strlen(content));
         }
     }

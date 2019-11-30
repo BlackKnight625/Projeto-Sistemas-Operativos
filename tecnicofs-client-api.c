@@ -84,12 +84,12 @@ int tfsRead(int fd, char *buffer, int len) {
     if (read(sock, &success, sizeof(int)) == -1) { 
         perror("Unable to read in tfsRead");
     }
+    memset(buffer, 0, MAX_INPUT_SIZE);
     if (read(sock, buffer, len) == -1) { 
         perror("Unable to read in tfsRead");
     }
-    if (success != 0)
-        return success;
-    return len-1; 
+    printf("%d\n", success);
+    return success;
 }
 
 int tfsWrite(int fd, char *buffer, int len) {
