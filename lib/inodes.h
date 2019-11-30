@@ -14,7 +14,7 @@ typedef struct inode_t {
     permission ownerPermissions;
     permission othersPermissions;
     char* fileContent;
-    char mode;
+    permission mode;
     int isOpen;
 } inode_t;
 

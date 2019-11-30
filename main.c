@@ -245,12 +245,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
-            if(!(arg2[0] >= '0' && arg2[0] < '3') || !(arg2[1] >= '0' && arg2[1] < '3')) {
+            if(!(arg2[0] > '0' && arg2[0] <= '3') || !(arg2[1] > '0' && arg2[1] <= '3')) {
                 return TECNICOFS_ERROR_INVALID_MODE;
-            }
-            
-            if((iNumber = inode_create(commandSender, arg2[0] -'0', arg2[1] -'0')) == -1) {
-                return TECNICOFS_ERROR_OTHER;
             }
 
             LOCK_WRITE_ACCESS(bucket);
@@ -259,6 +255,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(searchResult != -1) { 
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_FILE_ALREADY_EXISTS;
+            }
+
+            if((iNumber = inode_create(commandSender, arg2[0] -'0', arg2[1] -'0')) == -1) {
+                return TECNICOFS_ERROR_OTHER;
             }
             
             create(fs, arg1, iNumber);
