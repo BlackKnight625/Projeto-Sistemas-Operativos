@@ -246,7 +246,15 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
+<<<<<<< HEAD
             if((iNumber = inode_create(commandSender, arg2[0]-48, arg2[1]-48)) == -1) { /* !!! Nao faz sentido criarmos inode antes de verificarmos se ja existe */
+=======
+            if(!(arg2[0] >= '0' && arg2[0] < '3') || !(arg2[1] >= '0' && arg2[1] < '3')) {
+                return TECNICOFS_ERROR_INVALID_MODE;
+            }
+            
+            if((iNumber = inode_create(commandSender, arg2[0] -'0', arg2[1] -'0')) == -1) {
+>>>>>>> 8162e495413d08788e8f09578af3af1f0aa7a78e
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -281,7 +289,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if(!hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
+<<<<<<< HEAD
             else if (mode != 'r') {
+=======
+            else if (mode[0] != READ || mode[0] != RW) {
+>>>>>>> 8162e495413d08788e8f09578af3af1f0aa7a78e
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if (isOpen == 0) {
@@ -370,7 +382,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
+<<<<<<< HEAD
             if (mode != '1' || mode!= '3') {
+=======
+            else if (mode[0] != WRITE || mode[0] != RW) {
+>>>>>>> 8162e495413d08788e8f09578af3af1f0aa7a78e
                 printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
