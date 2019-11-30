@@ -424,7 +424,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             searchResult = lookup(fs, arg1);
 
-            if(searchResult != -1) {
+            if(searchResult == -1) {
                 multipleUnlock(currentBucket, newBucket);
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
