@@ -42,23 +42,10 @@ void doNothing(int bucket);
 #define MAX_CONTENT_SIZE 100
 #define NUM_MAX_THREADS 64
 
-
-/*Vetor de Strings que guarda os comandos*/
-char inputCommands[MAX_COMMANDS][MAX_INPUT_SIZE];
-int numberCommands = 0;
-int prodCommands = 0;
-int consCommands = 0;
-int headQueue = 0;
-int nThreads = 0;
-
 /*Variáveis globais*/
-pthread_mutex_t mutexCommand;
-pthread_mutex_t mutexProd;
 tecnicofs *fs;
-int numMaxThreads;
+int numThreads;
 int numBuckets;
-sem_t pode_prod;
-sem_t pode_cons;
 int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
@@ -400,26 +387,6 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
-/*Funcao responsavel por inicializar os locks*/
-void initLocks() {
-    if(pthread_mutex_init(&mutexCommand, NULL)) {
-        perror("Unable to initialize mutexCommand");
-    }
-    if(pthread_mutex_init(&mutexProd, NULL)) {
-        perror("Unable to initialize mutexProd");
-    }
-}
-
-/*Funcao responsavel por destruir os locks*/
-void destroyLocks() {
-    if(pthread_mutex_destroy(&mutexCommand)) {
-        perror("Unable to destroy mutexCommand in main(int agrc, char* argv[])");
-    }
-    if(pthread_mutex_destroy(&mutexProd)) {
-        perror("Unable to destroy mutexProd in main(int agrc, char* argv[])");
-    }
-}
-
 /*------------------------------------------------------------------
 Funcao chamada pelas thread escravas. Ouve por pedidos do cliente respetivo e executa-os
 --------------------------------------------------------------------*/
@@ -471,7 +438,7 @@ Ctrl+C. Devendo terminar ordeiramente o servidor.
 ------------------------------------------------------------------*/
 void apanhaCTRLC(int s) {
     close(sfd);
-    for (int i = 0; i < nThreads; i++) {
+    for (int i = 0; i < numThreads; i++) {
         if (pthread_join(threadIds[i], NULL))
             perror("Unable to join");
     }
@@ -487,8 +454,6 @@ void apanhaCTRLC(int s) {
     if(fclose(fp)) {
         perror("Unable to close file");
     }
-
-    destroyLocks();
     
     exit(EXIT_SUCCESS);
 }
@@ -510,8 +475,6 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    initLocks();
-
     fs = new_tecnicofs(numBuckets);
     
     time_ini = getTime();
@@ -522,11 +485,11 @@ int main(int argc, char* argv[]) {
 
     int ix = 0;
 
-    while (1) {
+    while (numThreads < NUM_MAX_THREADS) {
         int new_sock;
         getNewSocket(&new_sock, sfd);
         pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
-        nThreads += 1;
+        numThreads += 1;
         ix += 1;
     }
     return 0;
