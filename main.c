@@ -152,44 +152,6 @@ void errorParse(){
 }
 
 /*------------------------------------------------------------------
-Converte o input fornecido por line para o vetor -inputCommands-
-Devolve 0 se nao tiver sido inserido nenhum comando,
-devolve 1 caso contrario. Esta funcao e' chamada pelo produtor
-------------------------------------------------------------------*/
-int processInput(char *line){
-    char token;
-    char name[MAX_INPUT_SIZE];
-    int numTokens = sscanf(line, "%c %s", &token, name);
-
-    if (numTokens < 1) {
-        return 0;
-    }
-    switch (token) {
-        case 'c':
-        case 'l':
-        case 'd':
-        case 'r':
-            if(numTokens != 2)
-                errorParse();
-            LOCK_PROD();
-            insertCommand(line);
-            UNLOCK_PROD();
-                break;
-        case 'q':
-            LOCK_PROD();
-            strcpy(inputCommands[prodCommands], line);
-            UNLOCK_PROD();
-            break;
-        case '#':
-            return 0;
-        default: { /* error */
-            errorParse();
-        }
-    }
-    return 1;
-}
-
-/*------------------------------------------------------------------
 Funcao auxiliar para tratar do caso rename. De forma a evitar 
 interblocagem, decidimos fazer lock aos respetivos mutexs/rwlocks
 pela seguinte ordem: Deve-se lockar o menor bucket primeiro
@@ -478,77 +440,7 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
-/*------------------------------------------------------------------
-Funcao responsavel por destruir as tarefas inicializadas 
-no vetor -threadIds-
-------------------------------------------------------------------*/
-void destroyThreads(pthread_t threadIds[], int numMaxThreads) {
-    for (int i = 0; i < numMaxThreads; i++) {
-        if(pthread_join(threadIds[i], NULL)) {
-            perror("Unable to terminate thread");
-        }
-    }
-}
-
-/*------------------------------------------------------------------
-Funcao chamada pela tarefa inicial para carregar os comandos do
-ficheiro e inserir no vetor -inputCommands-
-------------------------------------------------------------------*/
-void produtor(char* const argv[], pthread_t threadIds[], int numMaxThreads) {
-    FILE *fp;
-    if(!(fp = fopen(argv[1], "r"))) {
-        perror("Unable to open file for reading");
-        exit(EXIT_FAILURE);
-    }
-    char line[MAX_INPUT_SIZE];
-    int status;
-    while (fgets(line, sizeof(line)/sizeof(char), fp)) {
-        WAIT_PODE_PROD();
-        status = processInput(line);
-        if (status) { POST_PODE_CONS(); }
-    }
-    WAIT_PODE_PROD();
-    processInput("q!");
-    POST_PODE_CONS();
-    destroyThreads(threadIds, numMaxThreads);
-    fclose(fp);
-}
-
-/*------------------------------------------------------------------
-Funcao executada pelas tarefas escravas. Assim que estas estejam 
-livres, deverao remover os comandos do vetor -inputCommands- 
-e executa-los
-------------------------------------------------------------------*/
-/*void *consumidor() {
-    while (1) {
-        LOCK_COMMAND();
-        if (strcmp(inputCommands[headQueue], "q!")) { //Mudar isto. Verificação constante desnecessária
-            UNLOCK_COMMAND();
-            WAIT_PODE_CONS();
-            applyCommands();
-            POST_PODE_PROD(); //Assim que se copia o comando, é preciso dizer ao produtor para produzir
-        }
-        else {
-            UNLOCK_COMMAND();
-            POST_PODE_CONS();
-            return NULL;
-        }
-    }
-}*/
-
-/*------------------------------------------------------------------
-Esta funcao e' responsavel por criar o numero de threads indicadas 
-por numMaxThreads
---------------------------------------------------------------------*/
-/*void createThreads(pthread_t threadIds[], int numMaxThreads) {
-    for(int i = 0; i < numMaxThreads; i++) {
-        if(pthread_create(&(threadIds[i]), NULL, consumidor, NULL)) {
-            perror("Unable to create thread in createThreads(int numMaxThreads)");
-        }
-    }
-}*/
-
-/*Funcao responsavel por inicializar os locks e semaforos*/
+/*Funcao responsavel por inicializar os locks*/
 void initLocks() {
     if(pthread_mutex_init(&mutexCommand, NULL)) {
         perror("Unable to initialize mutexCommand");
@@ -556,29 +448,15 @@ void initLocks() {
     if(pthread_mutex_init(&mutexProd, NULL)) {
         perror("Unable to initialize mutexProd");
     }
-
-    if (sem_init(&pode_prod, 0, MAX_COMMANDS)) {
-        perror("Unable to iniatialize pode_prod");
-    }
-    if (sem_init(&pode_cons, 0, 0)) {
-        perror("Unable to iniatialize pode_cons");
-    }
 }
 
-/*Funcao responsavel por destruir os locks e semaforos*/
+/*Funcao responsavel por destruir os locks*/
 void destroyLocks() {
     if(pthread_mutex_destroy(&mutexCommand)) {
         perror("Unable to destroy mutexCommand in main(int agrc, char* argv[])");
     }
     if(pthread_mutex_destroy(&mutexProd)) {
         perror("Unable to destroy mutexProd in main(int agrc, char* argv[])");
-    }
-
-    if (sem_destroy(&pode_prod)) {
-        perror("Unable to destroy pode_prod");
-    }
-    if (sem_destroy(&pode_cons)) {
-        perror("Unable to destroy pode_cons");
     }
 }
 
@@ -606,21 +484,28 @@ void *threadFunc(void *cfd) {
             break;   
         }
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
-        printf("Reading buffer: %s\n", buffer);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
         if (success == 1)
             break;
-        printf("Success: %d\n", success);
-        printf("Content: %s\n", content);
-        write(sock, &success, sizeof(int));
+        if (write(sock, &success, sizeof(int)) == -1) {
+            perror("Error on write");
+            break;
+        }
         if (*content != '\0' && success > 0) {
-            write(sock, content, success);
+            if (write(sock, content, success) == -1) {
+                perror("Error on write");
+                break;
+            }
         }
     }
     close(sock);
     return NULL;
 }
 
+/*------------------------------------------------------------------
+Funcao responsavel pelo tratamento do signal recebido causado por 
+Ctrl+C. Devendo terminar ordeiramente o servidor.
+------------------------------------------------------------------*/
 void apanhaCTRLC(int s) {
     close(sfd);
     for (int i = 0; i < nThreads; i++) {
@@ -636,6 +521,10 @@ void apanhaCTRLC(int s) {
 
     free_tecnicofs(fs);
 
+    if(fclose(fp)) {
+        perror("Unable to close file");
+    }
+
     destroyLocks();
     
     exit(EXIT_SUCCESS);
@@ -648,11 +537,6 @@ int main(int argc, char* argv[]) {
     parseArgs(argc, argv);
     numBuckets = atoi(argv[3]);
 
-    
-    /*if(numMaxThreads <= 0) {
-        perror("Number of threads must be a number greater than 0");
-        exit(EXIT_FAILURE);
-    }*/
     if(numBuckets <= 0) {
         perror("Number of buckets must be a number greater than 0");
         exit(EXIT_FAILURE);
@@ -669,23 +553,6 @@ int main(int argc, char* argv[]) {
     
     time_ini = getTime();
 
-    /*if(MULTITHREADING) {
-        createThreads(threadIds, numMaxThreads);  
-    }
-    else {
-        numMaxThreads = 1;
-        createThreads(threadIds, numMaxThreads);
-    }
-    produtor(argv, threadIds, numMaxThreads);
-
-    double time_f = getTime();
-
-    printf("TecnicoFs completed in %0.4f seconds.\n", time_f-time_ini);*/
-
-    /*if(fclose(fp)) {
-        perror("Unable to close file");
-    }*/
-
     signal(SIGINT, apanhaCTRLC);
 
     newServer(&sfd, argv[1]);
@@ -695,17 +562,8 @@ int main(int argc, char* argv[]) {
     while (1) {
         int new_sock;
         getNewSocket(&new_sock, sfd);
-        printf("Creating thread: %d\n", new_sock);
         pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
         nThreads += 1;
         ix += 1;
     }
-
-    print_tecnicofs_tree(fp, fs);
-
-    free_tecnicofs(fs);
-
-    destroyLocks();
-    
-    exit(EXIT_SUCCESS);
 }
