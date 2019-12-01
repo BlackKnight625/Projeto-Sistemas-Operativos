@@ -50,6 +50,7 @@ int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
 double time_ini;
+int flag; /* Tem o valor 1 se ja recebeu o signal Ctrl+C */
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -145,7 +146,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
     switch (command) {
         case 'c':
-            if(!(arg2[0] > '0' && arg2[0] <= '3') || !(arg2[1] > '0' && arg2[1] <= '3')) {
+            if(!(arg2[0] >= '0' && arg2[0] <= '3') || !(arg2[1] >= '0' && arg2[1] <= '3')) {
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
 
@@ -209,9 +210,18 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
+            if(!(arg2[0] > '0' && arg2[0] <= '3')) {
+                return TECNICOFS_ERROR_INVALID_MODE;
+            }
             else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, NULL, 0, NULL) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
+            }
+            else if ((arg2[0] == '2' || arg2[0] == '3') && !hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
+            }
+            else if ((arg2[0] == '1' || arg2[0] == '3') && !hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
 
             if(fileTable->nOpenedFiles == MAX_OPEN_FILES) {
@@ -219,10 +229,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_MAXED_OPEN_FILES;
             }
             UNLOCK_ACCESS(bucket);
-
-            if(!(arg2[0] > '0' && arg2[0] <= '3')) {
-                return TECNICOFS_ERROR_INVALID_MODE;
-            }
 
             inode_open(searchResult);
 
@@ -307,14 +313,15 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, &isOpen) == -1) {
-                printf("TECNICOFS_ERROR_OTHER: 2\n");
+            else if(inode_get(searchResult, &owner, NULL, NULL, NULL, 0, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
+            }
+            else if (commandSender != owner) {
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
             else if(isOpen) {
                 return TECNICOFS_ERROR_FILE_IS_OPEN;
             }
-
             else if(inode_delete(searchResult) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
@@ -338,10 +345,13 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, &isOpen) == -1) {
-                printf("TECNICOFS_ERROR_OTHER: 2\n");
+            else if(inode_get(searchResult, &owner, NULL, NULL, NULL, 0, &isOpen) == -1) {
                 multipleUnlock(currentBucket, newBucket);
                 return TECNICOFS_ERROR_OTHER;
+            }
+            else if(commandSender != owner) {
+                multipleUnlock(currentBucket, newBucket);
+                return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
             else if(isOpen) {
                 multipleUnlock(currentBucket, newBucket);
@@ -437,6 +447,10 @@ Funcao responsavel pelo tratamento do signal recebido causado por
 Ctrl+C. Devendo terminar ordeiramente o servidor.
 ------------------------------------------------------------------*/
 void apanhaCTRLC(int s) {
+    flag = 1;
+}
+
+void termina() {
     close(sfd);
     for (int i = 0; i < numThreads; i++) {
         if (pthread_join(threadIds[i], NULL))
@@ -485,12 +499,17 @@ int main(int argc, char* argv[]) {
 
     int ix = 0;
 
-    while (numThreads < NUM_MAX_THREADS) {
+    while (numThreads < NUM_MAX_THREADS && flag == 0) {
         int new_sock;
         getNewSocket(&new_sock, sfd);
+        if (flag != 0)
+            break;
         pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
         numThreads += 1;
         ix += 1;
     }
+
+    termina();
+
     return 0;
 }

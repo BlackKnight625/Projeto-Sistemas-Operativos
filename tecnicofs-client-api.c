@@ -115,6 +115,6 @@ int tfsUnmount() {
         perror("Unable to send message");
     }
     if (close(sock) == -1)
-        return TECNICOFS_ERROR_OTHER;
+        return TECNICOFS_ERROR_NO_OPEN_SESSION;
     return 0;
 }
