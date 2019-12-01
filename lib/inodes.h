@@ -14,12 +14,12 @@ typedef struct inode_t {
     permission ownerPermissions;
     permission othersPermissions;
     char* fileContent;
-    char mode;
     int isOpen; /*Holds the number of clients that curretly have this file open. Is 0 when it's closed*/
 } inode_t;
 
 typedef struct open_file_table {
     int iNumbers[MAX_OPEN_FILES];
+    char modes[MAX_OPEN_FILES];
     int nOpenedFiles;
 } open_file_table;
 
@@ -28,9 +28,9 @@ void inode_table_destroy();
 int inode_create(uid_t owner, permission ownerPerm, permission othersPerm);
 int inode_delete(int inumber);
 int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *othersPerm,
-                     char* fileContents, int len, char* mode, int* isOpen);
+                     char* fileContents, int len, int* isOpen);
 int inode_set(int inumber, char *contents, int len);
-int inode_open(int inumber, char mode);
+int inode_open(int inumber);
 int inode_close(int inumber);
 
 void open_file_table_init(open_file_table* fileTable);

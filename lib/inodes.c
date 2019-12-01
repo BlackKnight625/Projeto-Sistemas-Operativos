@@ -112,12 +112,13 @@ int inode_delete(int inumber){
  *  - ownerPerm: pointer to permission
  *  - othersPerm: pointer to permission
  *  - fileContent: pointer to a char array with size >= len
+ *  - isOpen: number of clients that currently have this i-node opened
  * Returns:
  *    len of content read:if successful
  *   -1: if an error occurs
  */
-int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *othersPerm,
-                     char* fileContents, int len, char* mode, int *isOpen){
+int inode_get(int inumber, uid_t *owner, permission *ownerPerm, permission *othersPerm,
+                     char* fileContents, int len, int *isOpen){
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){
         printf("inode_getValues: invalid inumber %d\n", inumber);
@@ -140,9 +141,6 @@ int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *other
     if(othersPerm)
         *othersPerm = inode_table[inumber].othersPermissions;
 
-    if(mode)
-        *mode = inode_table[inumber].mode;
-
     if(isOpen)
         *isOpen = inode_table[inumber].isOpen;
 
@@ -157,19 +155,34 @@ int inode_get(int inumber,uid_t *owner, permission *ownerPerm, permission *other
     return 0;
 }
 
-int inode_open(int inumber, char mode) {
+/*
+ * Increments the corresponding i-node's "isOpen" variable.
+ * Input:
+ *  - inumber: identifier of the i-node
+ * Returns:
+ *    0:if successful
+ *   -1: if an error occurs
+ */
+int inode_open(int inumber) {
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){
         printf("inode_open: invalid inumber %d\n", inumber);
         unlock_inode_table();
         return -1;
     }
-    inode_table[inumber].mode = mode;
     inode_table[inumber].isOpen++;
     unlock_inode_table();
     return 0;
 }
 
+/*
+ * Decrements the corresponding i-node's "isOpen" variable.
+ * Input:
+ *  - inumber: identifier of the i-node
+ * Returns:
+ *    0:if successful
+ *   -1: if an error occurs
+ */
 int inode_close(int inumber) {
     lock_inode_table();
     if((inumber < 0) || (inumber > INODE_TABLE_SIZE) || (inode_table[inumber].owner == FREE_INODE)){

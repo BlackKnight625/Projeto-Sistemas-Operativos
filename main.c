@@ -234,7 +234,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
     permission othersPerm;
     int len;
 
-    content[0] = 0; /*Indicates that the content's empty*/
+    content[0] = '\0'; /*Indicates that the content's empty*/
     
     switch(command) { /*Calculates the hash only for the commands that need it*/
         case 'c':
@@ -278,7 +278,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             } 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &mode, &isOpen) == -1) {
+
+            mode = fileTable->modes[fd];
+
+            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -299,7 +302,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else { result = len; }
 
             break;
-        case 'o':
+        case 'o': /*A nossa solucao permite que varios clientes possam abrir o mesmo ficheiro em modos diferentes*/
             LOCK_READ_ACCESS(bucket);
 
             searchResult = lookup(fs, arg1);
@@ -309,7 +312,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, NULL, 0, NULL, NULL) == -1) {
+            else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, NULL, 0, NULL) == -1) {
                 UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -320,11 +323,16 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
             UNLOCK_ACCESS(bucket);
 
-            inode_open(searchResult, arg2[0]);
+            if(!(arg2[0] > '0' && arg2[0] <= '3')) {
+                return TECNICOFS_ERROR_INVALID_MODE;
+            }
+
+            inode_open(searchResult);
 
             for(int i = 0; i < MAX_OPEN_FILES; i++) {
                 if(fileTable->iNumbers[i] == -1) {
                     fileTable->iNumbers[i] = searchResult;
+                    fileTable->modes[i] = arg2[0];
                     fileTable->nOpenedFiles++;
                     break;
                 }
@@ -338,11 +346,12 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             iNumber = fileTable->iNumbers[fd];
+            
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             } 
 
-            if(inode_get(iNumber, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+            if(inode_get(iNumber, NULL, NULL, NULL, NULL, 0, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
             else if(!isOpen) {
@@ -351,6 +360,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             inode_close(iNumber);
             fileTable->iNumbers[fd] = -1;
+            fileTable->modes[fd] = 0;
+            fileTable->nOpenedFiles--;
 
             break;
         case 'w':
@@ -364,8 +375,9 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
+            mode = fileTable->modes[fd];
 
-            else if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &mode, &isOpen) == -1) {
+            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -398,7 +410,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
@@ -429,7 +441,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_FOUND;
             }
 
-            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, NULL, &isOpen) == -1) {
+            else if(inode_get(searchResult, NULL, NULL, NULL, NULL, 0, &isOpen) == -1) {
                 printf("TECNICOFS_ERROR_OTHER: 2\n");
                 multipleUnlock(currentBucket, newBucket);
                 return TECNICOFS_ERROR_OTHER;
@@ -582,6 +594,9 @@ void destroyLocks() {
     }
 }
 
+/*------------------------------------------------------------------
+Funcao chamada pelas thread escravas. Ouve por pedidos do cliente respetivo e executa-os
+--------------------------------------------------------------------*/
 void *threadFunc(void *cfd) {
     char buffer[MAX_INPUT_SIZE];
     char command;
