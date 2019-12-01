@@ -17,60 +17,30 @@
 
 void doNothing(int bucket);
 
-//GITHUB E MERDA
-
 /*Testa existência de macros no compilador*/
-#if defined MUTEX
-#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock LOCK_COMMAND")
-#define LOCK_WRITE_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock LOCK_WRITE_ACCESS") 
-#define LOCK_READ_ACCESS(bucket) if (pthread_mutex_lock(&fs->mutexs[bucket])) perror("Unable to mutex lock LOCK_READ_ACCESS") 
-
-#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex unlock UNLOCK_COMMAND") 
-#define UNLOCK_ACCESS(bucket) if (pthread_mutex_unlock(&fs->mutexs[bucket])) perror("Unable to mutex unlock UNLOCK_ACCESS") 
-
-#define MULTITHREADING 1 /*true*/
-
-
-#elif defined RWLOCK
-#define LOCK_COMMAND() if (pthread_mutex_lock(&mutexCommand)) perror("Unable to mutex lock LOCK_COMMAND") 
+#if defined RWLOCK
 #define LOCK_WRITE_ACCESS(bucket) if (pthread_rwlock_wrlock(&fs->rwlocks[bucket])) perror("Unable to rwlock LOCK_WRITE_ACCESS") 
 #define LOCK_READ_ACCESS(bucket) if (pthread_rwlock_rdlock(&fs->rwlocks[bucket])) perror("Unable to rwlock LOCK_READ_ACCESS") 
 
-#define UNLOCK_COMMAND() if (pthread_mutex_unlock(&mutexCommand)) perror("Unable to mutex lock UNLOCK_COMMAND") 
 #define UNLOCK_ACCESS(bucket) if (pthread_rwlock_unlock(&fs->rwlocks[bucket])) perror("Unable to rwlock UNLOCK_ACCESS")
 
 #define MULTITHREADING 1 /*true*/
 
 /*Nenhuma macro previamente definida*/
 #else
-#define LOCK_COMMAND()
-#define LOCK_PROD()
-
 #define LOCK_WRITE_ACCESS(bucket) doNothing(bucket)
 #define LOCK_READ_ACCESS(bucket) doNothing(bucket)
 
-#define UNLOCK_COMMAND()
-#define UNLOCK_PROD()
 #define UNLOCK_ACCESS(bucket) doNothing(bucket)
 
 #define MULTITHREADING 0 /*false*/
 #endif /*Teste de existência de macros*/
 
-#if MULTITHREADING
-#define LOCK_PROD() if(pthread_mutex_lock(&mutexProd)) perror("Unable to mutex lock LOCK_PROD")
-#define UNLOCK_PROD() if(pthread_mutex_unlock(&mutexProd)) perror("Unable to mutex unlock UNLOCK_PROD")
-#endif 
-
-#define WAIT_PODE_PROD() if(sem_wait(&pode_prod)) perror("Unable to WAIT_PODE_PROD")
-#define WAIT_PODE_CONS() if(sem_wait(&pode_cons)) perror("Unable to WAIT_PODE_CONS")
-#define POST_PODE_PROD() if(sem_post(&pode_prod)) perror("Unable to POST_PODE_PROD")
-#define POST_PODE_CONS() if(sem_post(&pode_cons)) perror("Unable to POST_PODE_CONS")
-
 
 #define MAX_COMMANDS 10 /*Mudei este valor para comecar a execucao incremental*/
 #define MAX_INPUT_SIZE 100
 #define MAX_CONTENT_SIZE 100
-#define NUM_MAX_THREADS 16
+#define NUM_MAX_THREADS 64
 
 
 /*Vetor de Strings que guarda os comandos*/
@@ -127,28 +97,6 @@ int hasPermissionToRead(uid_t owner, uid_t person, permission ownerPerm, permiss
     }
     if(othersPerm == READ || othersPerm == RW) return 1;
     return 0;
-}
-
-/*Insere o comando fornecido por -data- no vetor -inputCommands-*/
-void insertCommand(char* data) {
-    strcpy(inputCommands[prodCommands], data);
-    prodCommands = (prodCommands+1)%MAX_COMMANDS;
-}
-
-/*Devolve o proximo comando em -inputCommands- */
-char* removeCommand() {
-    if(strcmp(inputCommands[headQueue], "q!")){
-        char *line = inputCommands[headQueue];
-        headQueue = (headQueue+1)%MAX_COMMANDS;
-        return line;
-    }
-    return NULL;
-}
-
-/*Funcao de erro caso os inputs nao sejam corretos*/
-void errorParse(){
-    fprintf(stderr, "Error: command invalid\n");
-    exit(EXIT_FAILURE);
 }
 
 /*------------------------------------------------------------------
@@ -428,8 +376,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             result = 1;
             break;
         default: { /* error */
-            fprintf(stderr, "Error: command to apply\n");
-            exit(EXIT_FAILURE);
+            result = TECNICOFS_ERROR_OTHER;
+            break;
         }
     }
     return result;
