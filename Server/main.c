@@ -13,7 +13,7 @@
 #include <signal.h>
 #include "fs.h"
 #include "lib/hash.h"
-#include "sockets/sockets.h"
+#include "lib/sockets.h"
 
 void doNothing(int bucket);
 
@@ -50,7 +50,6 @@ int sfd;
 pthread_t threadIds[NUM_MAX_THREADS];
 FILE *fp;
 double time_ini;
-int flag; /* Tem o valor 1 se ja recebeu o signal Ctrl+C */
 
 /*Mostra como se chama corretamente o programa*/
 static void displayUsage (const char* appName){
@@ -211,6 +210,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             if(!(arg2[0] > '0' && arg2[0] <= '3')) {
+                UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if(inode_get(searchResult, &owner, &ownerPerm, &othersPerm, NULL, 0, NULL) == -1) {
@@ -218,9 +218,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
             else if ((arg2[0] == '2' || arg2[0] == '3') && !hasPermissionToRead(owner, commandSender, ownerPerm, othersPerm)) {
+                UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
             else if ((arg2[0] == '1' || arg2[0] == '3') && !hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
+                UNLOCK_ACCESS(bucket);
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
 
@@ -269,36 +271,29 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             break;
         case 'w':
             if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
-                printf("TECNICOFS_ERROR_OTHER: 1\n");
                 return TECNICOFS_ERROR_OTHER;
             }
 
             iNumber = fileTable->iNumbers[fd];
             if(iNumber == -1) {
-                printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
             mode = fileTable->modes[fd];
 
             if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &isOpen) == -1) {
-                printf("TECNICOFS_ERROR_OTHER: 2\n");
                 return TECNICOFS_ERROR_OTHER;
             }
             else if(!hasPermissionToWrite(owner, commandSender, ownerPerm, othersPerm)) {
-                printf("TECNICOFS_ERROR_PERMISSION_DENIED\n");
                 return TECNICOFS_ERROR_PERMISSION_DENIED;
             }
             if (mode - '0' != WRITE && mode - '0' != RW) {
-                printf("TECNICOFS_ERROR_INVALID_MODE\n");
                 return TECNICOFS_ERROR_INVALID_MODE;
             }
             else if (!isOpen) {
-                printf("TECNICOFS_ERROR_FILE_NOT_OPEN\n");
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
             else if(inode_set(iNumber, arg2, strlen(arg2))) {
-                printf("TECNICOFS_ERROR_OTHER: 3\n");
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -410,10 +405,32 @@ void *threadFunc(void *cfd) {
     open_file_table fileTable;
     uid_t owner;
     struct ucred info;
+    int infolen = sizeof(info);
+    sigset_t set;
+
+    if (sigemptyset(&set) == -1) {
+        perror("Unable to empty set");
+        close(sock);
+        return NULL;
+    }
+    if (sigaddset(&set, SIGINT) == -1) {
+        perror("Unable to delete SIGINT");
+        close(sock);
+        return NULL;
+    }
+    if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
+        perror("Unable to pthread_sigmask");
+        close(sock);
+        return NULL;
+    }
 
     open_file_table_init(&fileTable);
 
-    getsockopt(sock, 0, 0, &info, NULL);
+    if (getsockopt(sock, SOL_SOCKET, SO_PEERCRED, &info, (socklen_t *) &infolen) != 0) {
+        perror("Unable to get options");
+        close(sock);
+        return NULL;
+    } 
 
     owner = info.uid;
 
@@ -447,10 +464,6 @@ Funcao responsavel pelo tratamento do signal recebido causado por
 Ctrl+C. Devendo terminar ordeiramente o servidor.
 ------------------------------------------------------------------*/
 void apanhaCTRLC(int s) {
-    flag = 1;
-}
-
-void termina() {
     close(sfd);
     for (int i = 0; i < numThreads; i++) {
         if (pthread_join(threadIds[i], NULL))
@@ -493,23 +506,31 @@ int main(int argc, char* argv[]) {
     
     time_ini = getTime();
 
-    signal(SIGINT, apanhaCTRLC);
+    if (signal(SIGINT, apanhaCTRLC) == SIG_ERR) {
+        perror("Unable to set signal");
+        exit(EXIT_FAILURE);
+    }
 
-    newServer(&sfd, argv[1]);
+    if (newServer(&sfd, argv[1]) < 0) {
+        perror("Unable to create server");
+        exit(EXIT_FAILURE);
+    }
 
     int ix = 0;
 
-    while (numThreads < NUM_MAX_THREADS && flag == 0) {
+    while (numThreads < NUM_MAX_THREADS) {
         int new_sock;
-        getNewSocket(&new_sock, sfd);
-        if (flag != 0)
+        if (getNewSocket(&new_sock, sfd) < 0) {
+            perror("Unable to create socket");
             break;
-        pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock);
+        }
+        if (pthread_create(&threadIds[ix], 0, threadFunc, (void *) &new_sock) != 0) {
+            perror("Unable to create thread");
+            break;
+        }
         numThreads += 1;
         ix += 1;
     }
-
-    termina();
-
+    apanhaCTRLC(0);
     return 0;
 }
