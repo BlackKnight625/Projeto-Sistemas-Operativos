@@ -365,6 +365,12 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             multipleUnlock(currentBucket, newBucket);
             break;
         case 's':
+            for(int i = 0; i < MAX_OPEN_FILES; i++) {
+                if (fileTable->iNumbers[i] != -1) {
+                    inode_close(fileTable->iNumbers[i]);
+                }              
+            }
+
             result = 1;
             break;
         default: { /* error */
