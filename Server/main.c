@@ -13,7 +13,7 @@
 #include <signal.h>
 #include "fs.h"
 #include "lib/hash.h"
-#include "sockets/sockets.h"
+#include "lib/sockets.h"
 
 void doNothing(int bucket);
 
@@ -492,5 +492,7 @@ int main(int argc, char* argv[]) {
         numThreads += 1;
         ix += 1;
     }
+    /*Se o numero total de clientes superar o NUM_MAX_THREADS, entao o programa acaba*/
+    apanhaCTRLC(0);
     return 0;
 }

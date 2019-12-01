@@ -12,8 +12,8 @@ LDFLAGS=-lm
 
 all: tecnicofs
 
-tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o sockets/sockets.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o sockets/sockets.o main-rwlock.o
+tecnicofs: lib/inodes.o lib/bst.o lib/hash.o fs.o main-rwlock.o lib/sockets.o
+	$(LD) $(CFLAGS) $(LDFLAGS) -pthread -o tecnicofs-rwlock lib/inodes.o lib/bst.o lib/hash.o fs.o lib/sockets.o main-rwlock.o
 
 lib/bst.o: lib/bst.c lib/bst.h
 	$(CC) $(CFLAGS) -o lib/bst.o -c lib/bst.c
@@ -27,8 +27,8 @@ fs.o: fs.c fs.h lib/bst.h lib/hash.h lib/inodes.h
 lib/inodes.o: lib/inodes.c lib/inodes.h
 	$(CC) $(CFLAGS) -o lib/inodes.o -c lib/inodes.c
 
-sockets/sockets.o: sockets/sockets.c sockets/sockets.h
-	$(CC) $(CFLAGS) -o sockets/sockets.o -c sockets/sockets.c
+lib/sockets.o: lib/sockets.c lib/sockets.h
+	$(CC) $(CFLAGS) -o lib/sockets.o -c lib/sockets.c
 
 # Nao ha neccessidade de separar os casos separados dos diferentes mains
 main-rwlock.o: main.c fs.h lib/bst.h lib/hash.h
@@ -56,8 +56,8 @@ api-tests/client-api-test-read.o: api-tests/client-api-test-read.c tecnicofs-cli
 api-tests/client-api-test-success.o: api-tests/client-api-test-success.c tecnicofs-client-api.h tecnicofs-api-constants.h
 	$(CC) $(CFLAGS) -o api-tests/client-api-test-success.o -c api-tests/client-api-test-success.c
 
-clients: sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o api-tests/client-api-test-delete.o api-tests/client-api-test-read.o api-tests/client-api-test-success.o
-	$(CC) $(CFLAGS) -o client-api-test-create sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o
-	$(CC) $(CFLAGS) -o client-api-test-delete sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-delete.o
-	$(CC) $(CFLAGS) -o client-api-test-read sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-read.o
-	$(CC) $(CFLAGS) -o client-api-test-success sockets/sockets.o tecnicofs-client-api.o api-tests/client-api-test-success.o
+#clients: lib/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o api-tests/client-api-test-delete.o api-tests/client-api-test-read.o api-tests/client-api-test-success.o
+#	$(CC) $(CFLAGS) -o client-api-test-create lib/sockets.o tecnicofs-client-api.o api-tests/client-api-test-create.o
+#	$(CC) $(CFLAGS) -o client-api-test-delete lib/sockets.o tecnicofs-client-api.o api-tests/client-api-test-delete.o
+#	$(CC) $(CFLAGS) -o client-api-test-read lib/sockets.o tecnicofs-client-api.o api-tests/client-api-test-read.o
+#	$(CC) $(CFLAGS) -o client-api-test-success lib/sockets.o tecnicofs-client-api.o api-tests/client-api-test-success.o

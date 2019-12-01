@@ -1,6 +1,6 @@
 #include "tecnicofs-api-constants.h"
 #include "tecnicofs-client-api.h"
-#include "sockets/sockets.h"
+#include "../Server/lib/sockets.h"
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
