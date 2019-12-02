@@ -13,9 +13,12 @@ int main(int argc, char** argv) {
     char readBuffer[10] = {'\0'};
     assert(tfsMount(argv[1]) == 0);
 
-    int fd[5];
+    int fd;
 
-    assert(tfsCreate());
+    printf("Test: open file to write");
+    assert((fd = tfsOpen("c", WRITE)) == 0);
+
+    assert(tfsWrite(fd, "G E T F U C K E D", 17) == 0);
     
     assert(tfsUnmount() == 0);
 

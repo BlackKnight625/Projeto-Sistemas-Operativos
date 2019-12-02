@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
         printf("Usage: %s sock_path\n", argv[0]);
         exit(0);
     }
-    char readBuffer[10] = {0};
+    char readBuffer[20] = {0};
     assert(tfsMount(argv[1]) == 0);
 
     printf("Test: create file sucess");
@@ -58,6 +58,10 @@ int main(int argc, char** argv) {
 
     printf("Test: rename open file");
     assert(tfsRename("d", "newName") == TECNICOFS_ERROR_FILE_IS_OPEN);
+
+    printf("Test: read full file content");
+    assert(tfsRead(2, readBuffer, 18) == 17);
+    printf("Content read: %s\n", readBuffer);
 
     printf("Test: closing file");
     assert(tfsClose(fd) == 0);

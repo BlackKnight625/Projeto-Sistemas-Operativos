@@ -487,7 +487,6 @@ void *threadFunc(void *cfd) {
         }
 
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-
         if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {
