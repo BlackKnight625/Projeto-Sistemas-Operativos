@@ -170,7 +170,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -196,7 +196,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
-
             len = atoi(arg2)-1;
             if(len < 0) {
                 return TECNICOFS_ERROR_OTHER;
@@ -204,7 +203,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(len > strlen(content))
                 result = strlen(content);
             else { result = len; }
-
+            printf("Lookup: %s\n", content);
             break;
         case 'o': /*A nossa solucao permite que varios clientes possam abrir o mesmo ficheiro em modos diferentes*/
             LOCK_READ_ACCESS(bucket);
@@ -258,7 +257,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -286,7 +285,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -312,7 +311,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if(inode_set(iNumber, arg2, strlen(arg2))) {
                 return TECNICOFS_ERROR_OTHER;
             }
-
+            printf("arg2: %s\n", arg2);
             
             break;
         case 'd':
@@ -472,13 +471,14 @@ void *threadFunc(void *cfd) {
         }
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-
+        printf("Bufa: %s Success: %d\n", buffer, success);
         if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {
             perror("Error on write");
             break;
         }
+        printf("Content: %s\n", content);
         if (*content != '\0' && success > 0) {
             if (write(sock, content, success) == -1) {
                 perror("Error on write");
