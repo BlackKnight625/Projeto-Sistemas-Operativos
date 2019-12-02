@@ -170,6 +170,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
+            if(fd >= 0 && fd <= 4) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+
             iNumber = fileTable->iNumbers[fd];
 
             if(iNumber == -1) {
@@ -254,6 +258,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
+            if(fd >= 0 && fd <= 4) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+
             iNumber = fileTable->iNumbers[fd];
             
             if(iNumber == -1) {
@@ -275,6 +283,10 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             break;
         case 'w':
             if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
+                return TECNICOFS_ERROR_OTHER;
+            }
+
+            if(fd >= 0 && fd <= 4) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
