@@ -71,7 +71,6 @@ void doNothing(int bucket) {
 }
 
 int hasPermissionToWrite(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
-    printf("In hasPermissionToWrite: owner: %d, person: %d, ownerPerm: %d, othersPerm: %d\n", owner, person, ownerPerm, othersPerm);
     if(owner == person) {
         if(ownerPerm == WRITE || ownerPerm == RW) return 1;
     }
@@ -171,19 +170,15 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            for (int i = 0; i < MAX_OPEN_FILES; i++) {
-                if (fileTable->iNumbers[i] == fd) {
-                    iNumber = fd;
-                    mode = fileTable->modes[i];
-                    break;
-                }
-            }
+            iNumber = fileTable->iNumbers[fd];
 
-            if (iNumber == -1) {
+            if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
-            }
+            } 
 
-            if(inode_get(fd, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &isOpen) == -1) {
+            mode = fileTable->modes[fd];
+
+            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -197,8 +192,12 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
 
+
             len = atoi(arg2)-1;
-            if (len > strlen(content))
+            if(len < 0) {
+                return TECNICOFS_ERROR_OTHER;
+            }
+            if(len > strlen(content))
                 result = strlen(content);
             else { result = len; }
 
@@ -238,7 +237,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
 
             inode_open(searchResult);
 
-            for(int i = 0; i < MAX_OPEN_FILES; i++) {
+            int i;
+            for(i = 0; i < MAX_OPEN_FILES; i++) {
                 if(fileTable->iNumbers[i] == -1) {
                     fileTable->iNumbers[i] = searchResult;
                     fileTable->modes[i] = arg2[0];
@@ -246,8 +246,8 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                     break;
                 }
             }
-
-            result = searchResult;
+            
+            result = i;
             break;
         case 'x':
             if(((fd = atoi(arg1)) == 0) && arg1[0] != '0') { /*If arg1 differs from "0" and atoi return 0, then arg1 contains a non-numeric string*/
@@ -278,17 +278,11 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            for (int i = 0; i < MAX_OPEN_FILES; i++) {
-                if (fileTable->iNumbers[i] == fd) {
-                    iNumber = fd;
-                    mode = fileTable->modes[i];
-                    break;
-                }
-            }
-
+            iNumber = fileTable->iNumbers[fd];
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
+            mode = fileTable->modes[fd];
 
             if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
@@ -307,6 +301,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
+            
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
@@ -332,6 +327,14 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             }
 
             delete(fs, arg1);
+            for(int i = 0; i < MAX_OPEN_FILES; i++) {
+                if(fileTable->iNumbers[i] == searchResult) {
+                    fileTable->iNumbers[i] = -1;
+                    fileTable->modes[i] = 0;
+                    fileTable->nOpenedFiles--;
+                    break;
+                }
+            }
             
             UNLOCK_ACCESS(bucket);       
             break;
@@ -457,13 +460,7 @@ void *threadFunc(void *cfd) {
         }
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-        printf("Comand: %s Success: %d\n", buffer, success);
-        if (command == 'o') {
-            for (int i = 0; i < MAX_OPEN_FILES; i++) {
-                printf("%d ", fileTable.iNumbers[i]);
-            }
-            printf("\n");
-        }
+
         if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {

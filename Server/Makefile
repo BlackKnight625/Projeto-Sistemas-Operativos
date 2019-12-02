@@ -56,8 +56,16 @@ run: tecnicofs
 ../Client/api-tests/client-api-test-success.o: ../Client/api-tests/client-api-test-success.c ../Client/tecnicofs-client-api.h ../Client/tecnicofs-api-constants.h
 	$(CC) $(CFLAGS) -o ../Client/api-tests/client-api-test-success.o -c ../Client/api-tests/client-api-test-success.c
 
-clients: lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-create.o ../Client/api-tests/client-api-test-delete.o ../Client/api-tests/client-api-test-read.o ../Client/api-tests/client-api-test-success.o
+../Client/api-tests/client-api-test1.o: ../Client/api-tests/client-api-test1.c ../Client/tecnicofs-client-api.h ../Client/tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o ../Client/api-tests/client-api-test1.o -c ../Client/api-tests/client-api-test1.c
+
+../Client/api-tests/client-api-test2.o: ../Client/api-tests/client-api-test2.c ../Client/tecnicofs-client-api.h ../Client/tecnicofs-api-constants.h
+	$(CC) $(CFLAGS) -o ../Client/api-tests/client-api-test2.o -c ../Client/api-tests/client-api-test2.c
+
+clients: lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-create.o ../Client/api-tests/client-api-test-delete.o ../Client/api-tests/client-api-test-read.o ../Client/api-tests/client-api-test-success.o ../Client/api-tests/client-api-test1.o ../Client/api-tests/client-api-test2.o
 	$(CC) $(CFLAGS) -o ../Client/client-api-test-create lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-create.o
 	$(CC) $(CFLAGS) -o ../Client/client-api-test-delete lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-delete.o
 	$(CC) $(CFLAGS) -o ../Client/client-api-test-read lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-read.o
 	$(CC) $(CFLAGS) -o ../Client/client-api-test-success lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test-success.o
+	$(CC) $(CFLAGS) -o ../Client/client-api-test1 lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test1.o
+	$(CC) $(CFLAGS) -o ../Client/client-api-test2 lib/sockets.o ../Client/tecnicofs-client-api.o ../Client/api-tests/client-api-test2.o
