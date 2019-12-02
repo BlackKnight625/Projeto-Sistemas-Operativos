@@ -82,6 +82,7 @@ int tfsOpen(char *filename, permission mode) {
         perror("Unable to read");
         return TECNICOFS_ERROR_CONNECTION_ERROR;
     }
+    printf("%d\n", success);
     return success;
 }
 

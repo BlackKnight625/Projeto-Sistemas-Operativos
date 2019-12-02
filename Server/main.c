@@ -71,6 +71,7 @@ void doNothing(int bucket) {
 }
 
 int hasPermissionToWrite(uid_t owner, uid_t person, permission ownerPerm, permission othersPerm) {
+    printf("In hasPermissionToWrite: owner: %d, person: %d, ownerPerm: %d, othersPerm: %d\n", owner, person, ownerPerm, othersPerm);
     if(owner == person) {
         if(ownerPerm == WRITE || ownerPerm == RW) return 1;
     }
@@ -170,15 +171,19 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            iNumber = fileTable->iNumbers[fd];
+            for (int i = 0; i < MAX_OPEN_FILES; i++) {
+                if (fileTable->iNumbers[i] == fd) {
+                    iNumber = fd;
+                    mode = fileTable->modes[i];
+                    break;
+                }
+            }
 
-            if(iNumber == -1) {
+            if (iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
-            } 
+            }
 
-            mode = fileTable->modes[fd];
-
-            if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &isOpen) == -1) {
+            if(inode_get(fd, &owner, &ownerPerm, &othersPerm, content, MAX_CONTENT_SIZE, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -191,7 +196,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if (!isOpen) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
-
 
             len = atoi(arg2)-1;
             if (len > strlen(content))
@@ -242,7 +246,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                     break;
                 }
             }
-            
+
             result = searchResult;
             break;
         case 'x':
@@ -274,11 +278,17 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            iNumber = fileTable->iNumbers[fd];
+            for (int i = 0; i < MAX_OPEN_FILES; i++) {
+                if (fileTable->iNumbers[i] == fd) {
+                    iNumber = fd;
+                    mode = fileTable->modes[i];
+                    break;
+                }
+            }
+
             if(iNumber == -1) {
                 return TECNICOFS_ERROR_FILE_NOT_OPEN;
             }
-            mode = fileTable->modes[fd];
 
             if(inode_get(iNumber, &owner, &ownerPerm, &othersPerm, NULL, 0, &isOpen) == -1) {
                 return TECNICOFS_ERROR_OTHER;
@@ -297,7 +307,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            
             break;
         case 'd':
             LOCK_WRITE_ACCESS(bucket);
@@ -448,7 +457,14 @@ void *threadFunc(void *cfd) {
         }
         sscanf(buffer, "%c %s %s", &command, arg1, arg2);
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-        if (success == 1)
+        printf("Comand: %s Success: %d\n", buffer, success);
+        if (command == 'o') {
+            for (int i = 0; i < MAX_OPEN_FILES; i++) {
+                printf("%d ", fileTable.iNumbers[i]);
+            }
+            printf("\n");
+        }
+        if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {
             perror("Error on write");
