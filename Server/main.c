@@ -170,7 +170,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -258,7 +258,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -286,7 +286,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
                 return TECNICOFS_ERROR_OTHER;
             }
 
-            if(fd >= 0 && fd <= 4) {
+            if(!(fd >= 0 && fd <= 4)) {
                 return TECNICOFS_ERROR_OTHER;
             }
 
@@ -422,6 +422,18 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
+char *getArg2(char *buffer) {
+    int count = 0;
+    for (int i = 0; i < strlen(buffer); i++) {
+        if (buffer[i] == ' ' && count < 2) { 
+            count += 1;
+        }
+        if (count == 2) 
+            return buffer+i+1;
+    }
+    return NULL;
+}
+
 /*------------------------------------------------------------------
 Funcao chamada pelas thread escravas. Ouve por pedidos do cliente respetivo e executa-os
 --------------------------------------------------------------------*/
@@ -470,9 +482,10 @@ void *threadFunc(void *cfd) {
             perror("Error on read");
             break;   
         }
-        sscanf(buffer, "%c %s %s", &command, arg1, arg2);
+        sscanf(buffer, "%c %s", &command, arg1);
+        strcpy(arg2, getArg2(buffer));
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-
+        printf("Bufa: %c %s %s Success: %d\n", command, arg1, arg2, success);
         if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {
