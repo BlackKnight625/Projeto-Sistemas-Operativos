@@ -203,7 +203,7 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             if(len > strlen(content))
                 result = strlen(content);
             else { result = len; }
-            printf("Lookup: %s\n", content);
+
             break;
         case 'o': /*A nossa solucao permite que varios clientes possam abrir o mesmo ficheiro em modos diferentes*/
             LOCK_READ_ACCESS(bucket);
@@ -311,7 +311,6 @@ int applyCommands(char command, char arg1[], char arg2[], uid_t commandSender, i
             else if(inode_set(iNumber, arg2, strlen(arg2))) {
                 return TECNICOFS_ERROR_OTHER;
             }
-            printf("arg2: %s\n", arg2);
             
             break;
         case 'd':
@@ -421,6 +420,18 @@ double getTime() {
     return secs + msecs/1000000;
 }
 
+char *getArg2(char *buffer) {
+    int count = 0;
+    for (int i = 0; i < strlen(buffer); i++) {
+        if (buffer[i] == ' ' && count < 2) { 
+            count += 1;
+        }
+        if (count == 2) 
+            return buffer+i+1;
+    }
+    return NULL;
+}
+
 /*------------------------------------------------------------------
 Funcao chamada pelas thread escravas. Ouve por pedidos do cliente respetivo e executa-os
 --------------------------------------------------------------------*/
@@ -469,16 +480,20 @@ void *threadFunc(void *cfd) {
             perror("Error on read");
             break;   
         }
-        sscanf(buffer, "%c %s %s", &command, arg1, arg2);
+        
+        if(sscanf(buffer, "%c %s %s", &command, arg1, arg2) == 3) { /*If sscanf fills up all 3 variables, then we must complete arg2 in case there are
+        more whitespaces*/
+            strcpy(arg2, getArg2(buffer));
+        }
+
         int success = applyCommands(command, arg1, arg2, owner, sock, content, &fileTable);
-        printf("Bufa: %s Success: %d\n", buffer, success);
+
         if (command == 's')
             break;
         if (write(sock, &success, sizeof(int)) == -1) {
             perror("Error on write");
             break;
         }
-        printf("Content: %s\n", content);
         if (*content != '\0' && success > 0) {
             if (write(sock, content, success) == -1) {
                 perror("Error on write");
